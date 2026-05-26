@@ -1,0 +1,8 @@
+name = "jxnu-elective-plus"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jxnu-ratings"
+database_id = "fa430b25-33a9-46d5-bd0c-52442971bac7"

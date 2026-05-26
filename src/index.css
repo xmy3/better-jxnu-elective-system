@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #F8F9FA;
+  color: #1F2937;
+}
+
+/* 全局轻量滚动条 —— 比浏览器默认浅且更细 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.16);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 引导步骤切换：方向感知滑入 + 淡入 */
+@keyframes onbInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes onbInLeft {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.onb-in-right { animation: onbInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.onb-in-left { animation: onbInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* 模拟选课面板 tab 切换：淡入 + 轻微上滑 */
+@keyframes simTabIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sim-tab-in { animation: simTabIn 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* 周课表「时段冲突」格：浅红斜条纹（替代纯红，降低刺眼度） */
+.sim-cell-conflict {
+  background-image: repeating-linear-gradient(
+    45deg,
+    #fef2f2 0,
+    #fef2f2 5px,
+    #fecaca 5px,
+    #fecaca 10px
+  );
+}

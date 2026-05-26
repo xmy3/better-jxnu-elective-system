@@ -1,0 +1,8 @@
+{
+  "label": "2026-09",
+  "startDate": "2026-09-01",
+  "endDate": "2027-01-15",
+  "fetchedAt": "2026-05-20",
+  "isCurrent": true,
+  "note": "预选目录(preselect_catalog)为 2026 真实数据；formal_schedule 仍借用 2025/9/1（2025秋）真实数据作下学期(2026-09)规划占位 —— 仅正选/补退选侧显示「2026-09（测试）」；预选侧显示「2026-09」(无后缀)。build_data.py 的 MIRROR_SEMESTERS 会再镜像一份 2025-09 给正选/补退选切换。"
+}
