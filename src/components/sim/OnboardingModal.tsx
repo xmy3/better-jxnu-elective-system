@@ -52,6 +52,9 @@ interface Props {
   /** 显示未来学期必修课开关（核对列表追加 + 环图浅蓝；与面板共享持久化）。 */
   showFutureRequired: boolean;
   setShowFutureRequired: (v: boolean) => void;
+  /** 引导模式：是否已浏览过 step 3「勾选已修专业限选」（即使空勾也算完成）。 */
+  visitedMajorElective: boolean;
+  setVisitedMajorElective: (v: boolean) => void;
   /** 从分享码恢复整套方案（覆盖 plan+已修+待选+选班，并进入 sim）。 */
   onApplyBundle: (bundle: PlanBundle) => void;
   onCancel: () => void;
@@ -93,6 +96,7 @@ export function OnboardingModal({
   toggleTransferOffset, transferOffsetCids,
   transferMode, originalPlan, setTransferMode, setOriginalPlan, transferEarlyCids,
   showFutureRequired, setShowFutureRequired,
+  visitedMajorElective, setVisitedMajorElective,
   onApplyBundle, onCancel, onFinish,
 }: Props) {
   const [step, setStep] = useState(1);
@@ -100,6 +104,8 @@ export function OnboardingModal({
   const go = (n: number) => {
     setDir(n >= step ? 1 : -1);
     setStep(n);
+    // 进入 step 3 即视为"已浏览专业限选" → 该步骤即使空勾也能打绿✓。
+    if (n === 3 && !visitedMajorElective) setVisitedMajorElective(true);
   };
 
   // 学号一键导入（二级页：标题栏右侧入口打开；接 /api/student-record → D1）。脱敏：仅凭学号。
@@ -306,7 +312,7 @@ export function OnboardingModal({
         {/* 步骤指示：手机 3 列(2 行) / 桌面 6 列(1 行)，避免溢出裁切 */}
         {/* 值检测：选中=红高亮；非选中但已有有效值=绿✓；无值=灰待填（不再按"走到第几步"判断）。
             特殊态：step 4 在「重修超限警告」（prevReqRaw>totalEarned）下永远显示黄色 warning（含 active 时叠加 ring）—— 提示用户去处理。
-            限选(step 3)：方案 minMajorElective=0 时也算打勾（留空设计），用户无需勾任何课。 */}
+            限选(step 3)：方案 minMajorElective=0 时 或 用户已浏览过该步骤 也算打勾（留空设计），用户无需勾任何课。 */}
         <div className="px-4 sm:px-7 mt-2 grid grid-cols-3 sm:grid-cols-5 gap-1.5 shrink-0">
           {STEPS.map((s, i) => {
             const n = i + 1;
@@ -314,7 +320,7 @@ export function OnboardingModal({
             const filled = [
               !!selectedPlan,                                                   // 1 方案
               totalEarned > 0 || electiveThisSem > 0,                           // 2 已修学分
-              takenMajorElectives.length > 0 || (!!selectedPlan && noMajorElective), // 3 限选（0 分要求 = 留空打勾）
+              takenMajorElectives.length > 0 || visitedMajorElective || (!!selectedPlan && noMajorElective), // 3 限选（已勾 / 已浏览 / 0 分要求 任一即打勾）
               !!selectedPlan,                                                   // 4 核对必修
               !!selectedPlan,                                                   // 5 课表
             ][i];

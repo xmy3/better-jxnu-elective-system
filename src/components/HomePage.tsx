@@ -969,6 +969,8 @@ export function HomePage() {
           transferEarlyCids={credit.transferEarlyCids}
           showFutureRequired={credit.stored.showFutureRequired}
           setShowFutureRequired={credit.setShowFutureRequired}
+          visitedMajorElective={credit.stored.visitedMajorElective}
+          setVisitedMajorElective={credit.setVisitedMajorElective}
           onApplyBundle={handleApplyBundle}
           onCancel={sim.cancelOnboarding}
           onFinish={sim.finishOnboarding}

@@ -23,6 +23,8 @@ export interface StoredInputs {
   transferOffsetCids: string[];
   /** 是否在核对/核算里显示未来学期必修课（极浅蓝规划进度，仅展示）。 */
   showFutureRequired: boolean;
+  /** 引导模式：用户是否已浏览过「勾选已修专业限选」步骤（即使没勾任何课也算完成 → 绿✓）。 */
+  visitedMajorElective: boolean;
 }
 
 const EMPTY: StoredInputs = {
@@ -35,6 +37,7 @@ const EMPTY: StoredInputs = {
   originalPlan: "",
   transferOffsetCids: [],
   showFutureRequired: false,
+  visitedMajorElective: false,
 };
 
 function simKey(plan: string) {
@@ -123,6 +126,11 @@ export function useCreditPlan(
   );
   const setShowFutureRequired = useCallback(
     (v: boolean) => mutate((p) => ({ ...p, showFutureRequired: v })),
+    [mutate],
+  );
+  // 引导模式：用户进入"勾选已修专业限选"步骤后置 true，让该步骤即使空勾也能打绿✓。
+  const setVisitedMajorElective = useCallback(
+    (v: boolean) => mutate((p) => ({ ...p, visitedMajorElective: v })),
     [mutate],
   );
   // 转专业「已抵」勾选：未匹配前两学期必修中，用户确认已从其他课抵掉学分的 cid。
@@ -254,6 +262,7 @@ export function useCreditPlan(
     setTransferMode,
     setOriginalPlan,
     setShowFutureRequired,
+    setVisitedMajorElective,
     toggleTransferOffset,
     setTakenMajorElectives,
     setExcludedRequired,
