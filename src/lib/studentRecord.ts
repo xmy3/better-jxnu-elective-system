@@ -143,11 +143,11 @@ export interface ImportSuggestion {
 }
 
 /**
- * 从档案派生引导各步建议值（含往期特色课抵扣）。
- * 特色课始终当必修处理（不进 electiveThisSem）。
- * 往期特色课（pti < term，已在 totalEarned 里）可抵大英缺口：移除被抵缺口后 prevReq 增加，
- * 但特色课已在 totalEarned 里，公式 totalEarned − prevReq + electiveThisSem 自然对消。
- * 本学期特色课（pti = term）只抵 ti = term 的大英缺口（都在 readingSem，不影响 prevReq）。
+ * 从档案派生引导各步建议值（含特色课抵扣）。
+ * 特色课按序号 1:1 抵大英缺口（低 ti 优先）。
+ *   往期特色课（pti < term）已在 totalEarned 里，prevReq 增加自然对消。
+ *   本学期特色课（pti = term）抵 ti=term 的大英时保持必修；
+ *   抵 ti<term 的大英时改为非必修进 electiveThisSem（与 prevReq 增加对消）。
  */
 export function deriveInputsFromRecord(record: StudentRecord, planCourses?: PlanCourse[]): ImportSuggestion {
   const term = record.readingPlanTerm;
@@ -170,10 +170,11 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
     (cid) => !taken.has(cid) && !isDeferredSettlement(cid),
   );
 
-  // 特色课抵大英缺口：
-  //   往期(pti<term) → 抵任何 ti 的大英（已在 totalEarned，prevReq 对消安全）
-  //   本学期(pti=term) → 只抵 ti=term 的大英（都在 readingSem，不影响 prevReq）
+  // 特色课按序号抵大英缺口（低 ti 优先），本学期特色课可抵任何大英。
+  // 当本学期特色课抵 ti<term 的大英时，prevReq +2 但特色课不在 totalEarned 里，
+  // 需要把该特色课改为非必修（进 electiveThisSem +2）来对消。
   let excludedRequiredCids = rawMissing;
+  const readingOffsetOnPastGap = new Set<string>();
   if (planCourses && (pastCount > 0 || curCount > 0)) {
     const byCid = new Map(planCourses.map((c) => [c.cid, c]));
     const englishMissing = rawMissing
@@ -187,20 +188,30 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
         return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
       });
 
-    // 往期特色课先抵（低 ti 优先）。
     const covered = new Set(englishMissing.slice(0, pastCount));
-    // 本学期特色课再抵 ti=term 的缺口（跳过已被往期抵的）。
     let remainCur = curCount;
     for (const cid of englishMissing) {
       if (remainCur <= 0) break;
       if (covered.has(cid)) continue;
-      const pc = byCid.get(cid);
-      if (pc != null && effectiveTermIndex(pc.cid, pc.semester) === term) {
-        covered.add(cid);
-        remainCur -= 1;
-      }
+      covered.add(cid);
+      remainCur -= 1;
     }
     excludedRequiredCids = rawMissing.filter((cid) => !covered.has(cid));
+
+    // 本学期特色课抵 ti<term 的大英时，对应的特色课 cid 需改为非必修。
+    const readingOffsetCids = record.detailCourses
+      .filter((c) => c.nature === "大学英语特色课" && c.courseId && (c.planTermIndex ?? 0) === term)
+      .map((c) => c.courseId!);
+    let usedForPastGap = 0;
+    for (const cid of englishMissing) {
+      if (usedForPastGap >= readingOffsetCids.length) break;
+      if (!covered.has(cid)) continue;
+      const pc = byCid.get(cid);
+      if (pc != null && term != null && effectiveTermIndex(pc.cid, pc.semester) < term) {
+        readingOffsetOnPastGap.add(readingOffsetCids[usedForPastGap]);
+        usedForPastGap += 1;
+      }
+    }
   }
 
   let totalEarned = 0;
@@ -215,7 +226,10 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
     if (c.nature === "专业限选" && c.courseId) takenMajorElectiveCids.push(c.courseId);
     if (isReading) {
       readingCredits += c.credits;
+      // 本学期特色课抵 ti<term 大英时改为非必修（进 electiveThisSem 与 prevReq 对消）。
+      const isOffsetOnPastGap = c.courseId != null && readingOffsetOnPastGap.has(c.courseId);
       const isRequired =
+        !isOffsetOnPastGap &&
         c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
       if (!isRequired) electiveThisSem += c.credits;
     } else {
@@ -239,7 +253,7 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
  * 档案里没修过的 cid → 标缺口（取消勾选）。三条修正：
  *   1) 跳过延迟结算课（形势与政策等不进课表的必修），避免误判成缺口。
  *   2) 往期特色课（pti < term）按序号抵任何大英缺口（已在 totalEarned，prevReq 安全）。
- *   3) 本学期特色课（pti = term）只抵 ti = term 的大英缺口（都在 readingSem，不影响 prevReq）。
+ *   3) 本学期特色课（pti = term）可抵任何大英缺口（抵 ti<term 时学分改入 electiveThisSem 对消）。
  */
 export function computeImportExclusions(record: StudentRecord, planCourses: PlanCourse[]): string[] {
   const term = record.readingPlanTerm;
@@ -275,18 +289,14 @@ export function computeImportExclusions(record: StudentRecord, planCourses: Plan
         return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
       });
 
-    // 往期特色课先抵（低 ti 优先）。
+    // 往期特色课先抵（低 ti 优先），本学期特色课再抵剩余缺口（不限 ti）。
     const covered = new Set(englishMissing.slice(0, pastCount));
-    // 本学期特色课再抵 ti=term 的缺口（跳过已被往期抵的）。
     let remainCur = curCount;
     for (const cid of englishMissing) {
       if (remainCur <= 0) break;
       if (covered.has(cid)) continue;
-      const pc = byCid.get(cid);
-      if (pc != null && effectiveTermIndex(pc.cid, pc.semester) === term) {
-        covered.add(cid);
-        remainCur -= 1;
-      }
+      covered.add(cid);
+      remainCur -= 1;
     }
     return missing.filter((cid) => !covered.has(cid));
   }
