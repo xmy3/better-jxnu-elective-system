@@ -197,8 +197,9 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
     if (isReading) {
       readingCredits += c.credits;
       if (c.nature === "大学英语特色课" && c.courseId != null && offsetSpecialIds.has(c.courseId)) {
-        // 抵了缺口的特色课：学分挪进 totalEarned（与新增 prevReq 对消，公式守恒）。
-        totalEarned += c.credits;
+        // 本学期 offset 特色课：不在 totalEarned 里（reading），计为非必修进 electiveThisSem，
+        // 与新增 prevReq 对消（prevReq +2, electiveThisSem +2 → 净 0）。
+        electiveThisSem += c.credits;
       } else {
         // 必修（含未抵特色课）不计本学期选修。
         const isRequired =
