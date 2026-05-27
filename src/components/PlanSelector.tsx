@@ -14,19 +14,9 @@ interface Props {
 
 // 完整类名（Tailwind JIT 需扫到完整字符串，不能动态拼接）。
 const ACCENT = {
-  red: {
-    focus: "focus:border-red-300 focus:ring-red-50",
-    item: "bg-red-50 text-red-600",
-    pillOn: "bg-red-500 text-white border-red-500 shadow-sm shadow-red-200",
-  },
-  indigo: {
-    focus: "focus:border-indigo-300 focus:ring-indigo-50",
-    item: "bg-indigo-50 text-indigo-600",
-    pillOn: "bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-200",
-  },
+  red: { focus: "focus:border-red-300 focus:ring-red-50", item: "bg-red-50 text-red-600" },
+  indigo: { focus: "focus:border-indigo-300 focus:ring-indigo-50", item: "bg-indigo-50 text-indigo-600" },
 } as const;
-
-const PILL_OFF = "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:text-gray-800";
 
 // 一次最多渲染的候选数：兜底超长列表的性能与「剩余项」提示（按年级拆分后单年级专业一般不会触顶）。
 const MAX_VISIBLE = 200;
@@ -51,9 +41,9 @@ function matchScore(option: string, q: string): number {
 }
 
 /**
- * 培养方案选择器（年级单选 + 专业可输入下拉两段式）：
- * - 上方一排年级胶囊，单选当前年级（默认最新年级）
- * - 下方专业搜索框：聚焦展开该年级全部专业，可输入子串过滤
+ * 培养方案选择器（年级下拉 + 专业可输入下拉，并列两段式）：
+ * - 左侧年级 select（默认最新年级），年级渐增也不会撑开版面
+ * - 右侧专业搜索框：聚焦展开该年级全部专业，可输入子串过滤
  * - 切换年级时若同名专业仍存在则沿用，否则清空待重选
  * - 对外仍以「年级-专业」字符串 value/onChange，调用方无需改动
  */
@@ -204,83 +194,96 @@ export function PlanSelector({ value, onChange, options, autoOpen = false, seedQ
 
   return (
     <div ref={wrapRef} className="relative">
-      {/* 年级单选 */}
-      <div className="flex flex-wrap gap-1.5 mb-2" role="radiogroup" aria-label="年级">
-        {years.map((y) => (
-          <button
-            key={y}
-            type="button"
-            role="radio"
-            aria-checked={y === year}
-            onClick={() => pickYear(y)}
-            className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all select-none min-h-[30px] ${
-              y === year ? a.pillOn : PILL_OFF
-            }`}
+      <div className="flex items-stretch gap-2">
+        {/* 年级下拉 */}
+        <div className="relative shrink-0 w-28">
+          <select
+            value={year}
+            onChange={(e) => pickYear(e.target.value)}
+            disabled={years.length === 0}
+            aria-label="年级"
+            className={`appearance-none w-full h-full pl-3 pr-7 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-700 outline-none cursor-pointer focus:bg-white focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${a.focus}`}
           >
-            {y}级
-          </button>
-        ))}
-      </div>
-
-      {/* 专业可输入下拉 */}
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-            setActiveIdx(0);
-          }}
-          onFocus={handleFocus}
-          onKeyDown={onKeyDown}
-          placeholder={year ? "搜索 / 选择专业" : "请先选择年级"}
-          disabled={!year}
-          className={`w-full pl-3 pr-8 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${a.focus}`}
-        />
-        {selectedMajor && (
-          <button
-            type="button"
-            onClick={clearMajor}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            aria-label="清空专业选择"
+            {!year && <option value="" disabled>年级</option>}
+            {years.map((y) => (
+              <option key={y} value={y}>{y}级</option>
+            ))}
+          </select>
+          <svg
+            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
 
-      {open && year && (
-        <div className="absolute left-0 right-0 top-full mt-1 max-h-72 overflow-y-auto rounded-lg bg-white border border-gray-200 shadow-lg z-50">
-          {filtered.length === 0 ? (
-            <div className="px-3 py-3 text-xs text-gray-400">该年级无匹配专业</div>
+        {/* 专业可输入下拉 */}
+        <div className="relative flex-1 min-w-0">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+              setActiveIdx(0);
+            }}
+            onFocus={handleFocus}
+            onKeyDown={onKeyDown}
+            placeholder={year ? "搜索 / 选择专业" : "请先选择年级"}
+            disabled={!year}
+            className={`w-full pl-3 pr-8 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder-gray-400 outline-none focus:bg-white focus:ring-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${a.focus}`}
+          />
+          {selectedMajor ? (
+            <button
+              type="button"
+              onClick={clearMajor}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+              aria-label="清空专业选择"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           ) : (
-            <>
-              {filtered.map((opt, i) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onMouseEnter={() => setActiveIdx(i)}
-                  onClick={() => commit(opt)}
-                  className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
-                    i === activeIdx ? a.item : "text-gray-700 hover:bg-gray-50"
-                  } ${opt === selectedMajor ? "font-semibold" : ""}`}
-                >
-                  {opt}
-                </button>
-              ))}
-              {totalMatched > MAX_VISIBLE && (
-                <div className="sticky bottom-0 px-3 py-2 text-[11px] text-gray-500 bg-gray-50 border-t border-gray-100">
-                  已显示前 {MAX_VISIBLE} 项，还有 {totalMatched - MAX_VISIBLE} 项未显示 · 输入更多文字以缩小范围…
-                </div>
+            <svg
+              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+
+          {open && year && (
+            <div className="absolute left-0 right-0 top-full mt-1 max-h-72 overflow-y-auto rounded-lg bg-white border border-gray-200 shadow-lg z-50">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-3 text-xs text-gray-400">该年级无匹配专业</div>
+              ) : (
+                <>
+                  {filtered.map((opt, i) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onMouseEnter={() => setActiveIdx(i)}
+                      onClick={() => commit(opt)}
+                      className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                        i === activeIdx ? a.item : "text-gray-700 hover:bg-gray-50"
+                      } ${opt === selectedMajor ? "font-semibold" : ""}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                  {totalMatched > MAX_VISIBLE && (
+                    <div className="sticky bottom-0 px-3 py-2 text-[11px] text-gray-500 bg-gray-50 border-t border-gray-100">
+                      已显示前 {MAX_VISIBLE} 项，还有 {totalMatched - MAX_VISIBLE} 项未显示 · 输入更多文字以缩小范围…
+                    </div>
+                  )}
+                </>
               )}
-            </>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
