@@ -144,10 +144,8 @@ export interface ImportSuggestion {
 
 /**
  * 从档案派生引导各步建议值（含特色课抵扣）。
- * 特色课按序号 1:1 抵大英缺口（低 ti 优先）。
- *   往期特色课（pti < term）已在 totalEarned 里，prevReq 增加自然对消。
- *   本学期特色课（pti = term）抵 ti=term 的大英时保持必修；
- *   抵 ti<term 的大英时改为非必修进 electiveThisSem（与 prevReq 增加对消）。
+ * 特色课按序号 1:1 抵大英缺口（低 ti 优先），仅影响 excludedRequiredCids（UI 勾选）。
+ * 特色课始终当必修处理（不进 electiveThisSem）。
  */
 export function deriveInputsFromRecord(record: StudentRecord, planCourses?: PlanCourse[]): ImportSuggestion {
   const term = record.readingPlanTerm;
@@ -170,11 +168,9 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
     (cid) => !taken.has(cid) && !isDeferredSettlement(cid),
   );
 
-  // 特色课按序号抵大英缺口（低 ti 优先），本学期特色课可抵任何大英。
-  // 当本学期特色课抵 ti<term 的大英时，prevReq +2 但特色课不在 totalEarned 里，
-  // 需要把该特色课改为非必修（进 electiveThisSem +2）来对消。
+  // 特色课按序号 1:1 抵大英缺口（低 ti 优先），本学期特色课可抵任何大英。
+  // 仅影响 excludedRequiredCids（UI 勾选），不改变特色课分类。
   let excludedRequiredCids = rawMissing;
-  const readingOffsetOnPastGap = new Set<string>();
   if (planCourses && (pastCount > 0 || curCount > 0)) {
     const byCid = new Map(planCourses.map((c) => [c.cid, c]));
     const englishMissing = rawMissing
@@ -197,21 +193,6 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
       remainCur -= 1;
     }
     excludedRequiredCids = rawMissing.filter((cid) => !covered.has(cid));
-
-    // 本学期特色课抵 ti<term 的大英时，对应的特色课 cid 需改为非必修。
-    const readingOffsetCids = record.detailCourses
-      .filter((c) => c.nature === "大学英语特色课" && c.courseId && (c.planTermIndex ?? 0) === term)
-      .map((c) => c.courseId!);
-    let usedForPastGap = 0;
-    for (const cid of englishMissing) {
-      if (usedForPastGap >= readingOffsetCids.length) break;
-      if (!covered.has(cid)) continue;
-      const pc = byCid.get(cid);
-      if (pc != null && term != null && effectiveTermIndex(pc.cid, pc.semester) < term) {
-        readingOffsetOnPastGap.add(readingOffsetCids[usedForPastGap]);
-        usedForPastGap += 1;
-      }
-    }
   }
 
   let totalEarned = 0;
@@ -226,11 +207,7 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
     if (c.nature === "专业限选" && c.courseId) takenMajorElectiveCids.push(c.courseId);
     if (isReading) {
       readingCredits += c.credits;
-      // 本学期特色课抵 ti<term 大英时改为非必修（进 electiveThisSem 与 prevReq 对消）。
-      const isOffsetOnPastGap = c.courseId != null && readingOffsetOnPastGap.has(c.courseId);
-      const isRequired =
-        !isOffsetOnPastGap &&
-        c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
+      const isRequired = c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
       if (!isRequired) electiveThisSem += c.credits;
     } else {
       totalEarned += c.credits;
