@@ -18,7 +18,8 @@ const ACCENT = {
   indigo: { focus: "focus:border-indigo-300 focus:ring-indigo-50", item: "bg-indigo-50 text-indigo-600" },
 } as const;
 
-const MAX_VISIBLE = 50;
+// 一次最多渲染的候选数：放宽到 200，让滚动条能滚更多项；仍保留上限以兜底超长列表的性能与「剩余项」提示。
+const MAX_VISIBLE = 200;
 
 // 字符匹配度打分：完全相等 > 前缀 > 子串靠前 > 子串；长度越接近 query 越高。负无穷 = 不匹配。
 function matchScore(option: string, q: string): number {
@@ -173,8 +174,8 @@ export function PlanSelector({ value, onChange, options, autoOpen = false, seedQ
                 </button>
               ))}
               {totalMatched > MAX_VISIBLE && (
-                <div className="px-3 py-1.5 text-[11px] text-gray-400 border-t border-gray-100">
-                  还有 {totalMatched - MAX_VISIBLE} 项未显示，继续输入缩小范围…
+                <div className="sticky bottom-0 px-3 py-2 text-[11px] text-gray-500 bg-gray-50 border-t border-gray-100">
+                  已显示前 {MAX_VISIBLE} 项，还有 {totalMatched - MAX_VISIBLE} 项未显示 · 输入更多文字（如专业名）以缩小范围…
                 </div>
               )}
             </>
