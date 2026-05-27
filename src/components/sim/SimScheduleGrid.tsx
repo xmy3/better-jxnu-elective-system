@@ -4,6 +4,7 @@ import { DAY_LABELS, SLOT_KEYS, slotLabel, dayLabel } from "../../lib/schedulePa
 import type { PlacedCourse, PlacedKind } from "../../lib/schedulePlacement";
 import { natureColor } from "../../lib/creditPlan";
 import { tagColorClasses } from "../TagBadge";
+import { CopyIdButton } from "../CopyIdButton";
 
 // 模拟选课周课表：占用格按所选培养方案下的课程性质着色（与标签色一致）；
 // 同格 ≥2 门 → 冲突浅红斜条纹；必修课在右上角加蓝色「必」角标。
@@ -299,6 +300,10 @@ export function SimScheduleGrid({ placed, onChooseSection, onCancelRequired, onR
                     <div className="flex items-center gap-1.5">
                       <span className="inline-block w-2 h-2 rounded-sm shrink-0" style={{ background: natureColor(c.nature) }} />
                       <span className="text-[12px] font-semibold text-gray-800 flex-1 truncate">{c.name}</span>
+                      <span className="flex items-center gap-1 shrink-0">
+                        <span className="text-[11px] text-gray-400 font-mono">{c.cid}</span>
+                        <CopyIdButton text={c.cid} className="w-4 h-4" />
+                      </span>
                       <span className={`text-[10px] font-bold px-1 rounded shrink-0 ${s.chip}`}>{s.label}</span>
                       <span className="text-[11px] font-bold text-gray-600 shrink-0">{c.credits}分</span>
                     </div>
@@ -404,6 +409,10 @@ export function SimScheduleGrid({ placed, onChooseSection, onCancelRequired, onR
                   <div className="flex items-center gap-1.5">
                     <span className="inline-block w-2 h-2 rounded-sm shrink-0" style={{ background: natureColor(c.nature) }} />
                     <span className="text-[12px] font-semibold text-gray-800 flex-1 truncate">{c.name}</span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <span className="text-[11px] text-gray-400 font-mono">{c.cid}</span>
+                      <CopyIdButton text={c.cid} className="w-4 h-4" />
+                    </span>
                     <span className={`text-[10px] font-bold px-1 rounded shrink-0 ${s.chip}`}>{s.label}</span>
                     <span className="text-[11px] font-bold text-gray-600 shrink-0">{c.credits}分</span>
                     {c.kind === "required" ? (

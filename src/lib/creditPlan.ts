@@ -1,6 +1,6 @@
 import type { Course, MajorRequirement, PlanCourse } from "../types";
 import { matchedPlans } from "./planMatch";
-import { termIndexOf } from "./term";
+import { termIndexOf, effectiveTermIndex, isDeferredSettlement } from "./term";
 
 // 学分核算视图模型 —— 纯派生，零持久化。两大块（用户口径）：
 //   必修 = 公共必修(课) + 专业主干 + 专业类基础 + 教师教育必修（强制修满）
@@ -224,7 +224,8 @@ export function buildCreditPlan(
   const futureSemRequired: PlanCourse[] = []; // ti > planTerm：未来学期必修（仅规划展示）
   for (const pc of planCourses) {
     if (!REQUIRED_NATURES.includes(pc.nature)) continue;
-    const ti = termIndexOf(pc.semester);
+    // 延迟结算课（如形势与政策）按结算学期归类，不按开课学期 —— 结算前一律是未来必修缺口、永不进课表。
+    const ti = effectiveTermIndex(pc.cid, pc.semester);
     if (ti <= 0) continue;
     const excluded = excludedRequired.has(pc.cid);
     const matched = transferEarlyCids.has(pc.cid);
@@ -240,18 +241,21 @@ export function buildCreditPlan(
       }
     } else if (ti === term) {
       if (!excluded) readingSemRequired.push(pc);
-    } else if (ti === planTerm) {
+    } else if (ti === planTerm && !isDeferredSettlement(pc.cid)) {
+      // 延迟结算课即使结算学期 == 下学期也不排课 —— 落到 else 当未来必修缺口。
       if (excluded) nextSemRequiredExcluded.push(pc);
       else nextSemRequired.push(pc);
     } else {
-      // ti > planTerm：未来学期必修。全量收集（含被勾除的），浅蓝学分按 excludedRequired 再过滤。
+      // ti > planTerm（或延迟结算课）：未来学期必修。全量收集（含被勾除的），浅蓝学分按 excludedRequired 再过滤。
       futureSemRequired.push(pc);
     }
   }
   const readReqCredits = sumCredits(readingSemRequired);
   const nextReqCredits = sumCredits(nextSemRequired);
   futureSemRequired.sort(
-    (a, b) => termIndexOf(a.semester) - termIndexOf(b.semester) || a.name.localeCompare(b.name),
+    (a, b) =>
+      effectiveTermIndex(a.cid, a.semester) - effectiveTermIndex(b.cid, b.semester) ||
+      a.name.localeCompare(b.name),
   );
 
   // 专业限选 已修（用户勾选 ∪ 转专业自动匹配的前两学期限选）。
@@ -302,6 +306,15 @@ export function buildCreditPlan(
     cart: cartTotal,
   };
 
+  // 未来学期必修（ti > planTerm）：极浅蓝规划段，独立列在必修块尾。
+  //   - 计入 mkBlock 的 segments，因此 requiredBlock.earned 会随勾选同步增长；
+  //   - 仍封顶在「投影后剩余缺口」，避免画出超过 minTotal 的进度；
+  //   - earned/totalRemaining 的全局口径也用同一个 futureReqShown，三处保持一致。
+  const earnedBeforeFuture = reqEarned + electiveEarnedTotal;
+  const gapBeforeFuture = minTotal != null ? Math.max(0, minTotal - earnedBeforeFuture - projectionValue) : 0;
+  const futureReqCredits = sumCredits(futureSemRequired.filter((c) => !excludedRequired.has(c.cid)));
+  const futureReqShown = showFutureRequired ? Math.min(futureReqCredits, gapBeforeFuture) : 0;
+
   const mkBlock = (
     key: BlockKey,
     label: string,
@@ -331,6 +344,8 @@ export function buildCreditPlan(
     [
       { key: "prevReq", label: "非本学期必修", value: effectivePrevReq, color: SEG_COLOR.prevReq },
       { key: "readReq", label: "本学期必修", value: readReqCredits, color: SEG_COLOR.readReq },
+      // 未来必修也算进必修块，让条/数值随勾选同步增长（封顶在剩余缺口，避免画过界）。
+      ...(futureReqShown > 0 ? [{ key: "futureReq", label: "未来必修", value: futureReqShown, color: SEG_COLOR.futureReq }] : []),
     ],
     requiredPlanned,
   );
@@ -350,12 +365,8 @@ export function buildCreditPlan(
 
   const blocks: CreditBlock[] = [requiredBlock, electiveBlock];
 
-  const earned = reqEarned + electiveEarnedTotal;
-  // 未来学期必修（ti > planTerm）：极浅蓝规划进度。仅 showFutureRequired 开启时计入。
-  //   futureReqShown 封顶在「投影后剩余缺口」避免画到负值，并从毕业还差里扣掉（已与用户确认）。
-  const gapBeforeFuture = minTotal != null ? Math.max(0, minTotal - earned - projectionValue) : 0;
-  const futureReqCredits = sumCredits(futureSemRequired.filter((c) => !excludedRequired.has(c.cid)));
-  const futureReqShown = showFutureRequired ? Math.min(futureReqCredits, gapBeforeFuture) : 0;
+  // 全局 earned 也把 futureReqShown 算进去，三处口径（必修块/环图/毕业还差）一致。
+  const earned = earnedBeforeFuture + futureReqShown;
   const totalRemaining = minTotal != null ? Math.max(0, gapBeforeFuture - futureReqShown) : null;
   const nextSemCap = transferMode ? TRANSFER_NEXT_SEM_CAP : NEXT_SEM_CAP;
 

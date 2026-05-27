@@ -1,6 +1,7 @@
 import type { Course, DataSource, FormalSection } from "../types";
 import { TagBadge } from "./TagBadge";
 import { StarRating } from "./StarRating";
+import { CopyIdButton } from "./CopyIdButton";
 import { displayTags, isInPlan, compactTags } from "../lib/planMatch";
 import { DataSourceSwitcher } from "./DataSourceSwitcher";
 import { SemesterSelector } from "./SemesterSelector";
@@ -219,10 +220,12 @@ export function CourseTable({
   return (
     <div>
       {/* ===== 桌面端 ===== */}
-      <div className="hidden md:block bg-white rounded-b-xl border border-gray-100 shadow-sm">
+      {/* 不要给 wrapper 加 border-top —— 那条 1px gray-100 是表里"工具栏与搜索框间 1px 缝隙"
+          的真正元凶：sticky toolbar 不能贴住 wrapper border 的 1px 偏移，露出灰线即缝。 */}
+      <div className="hidden md:block bg-white rounded-b-xl border-x border-b border-gray-100 shadow-sm">
         {/* Toolbar —— 左：数据源切换；右：学期下拉。 */}
         <div
-          className="sticky z-30 flex h-[50px] items-center justify-between bg-white px-5 border-b border-gray-100 before:absolute before:inset-x-0 before:-top-2 before:h-2 before:bg-white before:content-['']"
+          className="sticky z-30 flex h-[50px] items-center justify-between bg-white px-5 border-b border-gray-100"
           style={{ top: stickyTop }}
         >
           <DataSourceSwitcher value={dataSource} onChange={onChangeDataSource} />
@@ -349,9 +352,14 @@ export function CourseTable({
                     <tr
                       key={`${s.id}-${s.className}-${s.teacherId}-${idx}`}
                       onClick={() => onSelectSection?.(s)}
-                      className={`transition-colors cursor-pointer ${isSelected ? "bg-red-50/50" : inPlan ? "bg-indigo-50/40 hover:bg-indigo-50/60" : "hover:bg-gray-50"}`}
+                      className={`group transition-colors cursor-pointer ${isSelected ? "bg-red-50/50" : inPlan ? "bg-indigo-50/40 hover:bg-indigo-50/60" : "hover:bg-gray-50"}`}
                     >
-                      <td className={`px-3 py-3 text-xs font-mono tracking-wide border-b border-gray-50 whitespace-nowrap ${isSelected ? "text-gray-600" : "text-gray-400"} ${inPlan && !isSelected ? "border-l-2 border-l-indigo-400" : ""}`}>{s.id}</td>
+                      <td className={`px-3 py-3 text-xs font-mono tracking-wide border-b border-gray-50 whitespace-nowrap ${isSelected ? "text-gray-600" : "text-gray-400"} ${inPlan && !isSelected ? "border-l-2 border-l-indigo-400" : ""}`}>
+                        <span className="inline-flex items-center gap-1">
+                          {s.id}
+                          <CopyIdButton text={s.id} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                      </td>
                       <td className={`px-3 py-3 text-[13px] font-medium border-b border-gray-50 ${isSelected ? "text-red-600" : "text-gray-800"}`}>
                         <span className="flex items-center gap-2 min-w-0">
                           {isSelected && <span className="w-[3px] h-4 rounded-full bg-red-500 shrink-0" />}
@@ -486,7 +494,12 @@ export function CourseTable({
                         : "hover:bg-gray-50"
                     }`}
                   >
-                    <td className={`px-5 py-4 text-xs font-mono tracking-wide border-b border-gray-50 ${isSelected ? "text-gray-600" : "text-gray-400"} ${inPlan && !isSelected ? "border-l-2 border-l-indigo-400" : ""}`}>{c.id}</td>
+                    <td className={`px-5 py-4 text-xs font-mono tracking-wide border-b border-gray-50 ${isSelected ? "text-gray-600" : "text-gray-400"} ${inPlan && !isSelected ? "border-l-2 border-l-indigo-400" : ""}`}>
+                      <span className="inline-flex items-center gap-1">
+                        {c.id}
+                        <CopyIdButton text={c.id} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </span>
+                    </td>
                     <td className={`px-5 py-4 text-[13px] font-medium border-b border-gray-50 transition-colors ${isSelected ? "text-red-600" : "text-gray-800 group-hover:text-red-600"}`}>
                       <div className="flex items-center gap-2">
                         {isSelected && <span className="w-[3px] h-4 rounded-full bg-red-500 shrink-0" />}

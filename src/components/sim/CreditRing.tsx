@@ -41,6 +41,8 @@ export function CreditRing({ view, size = 120, stroke = 12 }: Props) {
     const outer = size / 2;
 
     // 稳定的数据项集合：各块已修子段(实色) + 各块下学期理论(块色 + decal 斜纹) + 剩余(灰)。
+    // 「未来必修」(极浅蓝)现在已是必修块 segments 的一部分（buildCreditPlan 注入），
+    // 会跟着第一段 flatMap 渲染，不能再单独 push 一次，否则双倍。
     // decal 由 CanvasRenderer 直接绘制（无需 aria 组件）；万一 decal 不渲染，底色仍是块色，语义不丢。
     const data = [
       ...view.blocks.flatMap((b) =>
@@ -68,16 +70,9 @@ export function CreditRing({ view, size = 120, stroke = 12 }: Props) {
             }]
           : [],
       ),
-      ...(view.futureReqShown > 0
-        ? [{
-            name: "未来必修",
-            value: view.futureReqShown,
-            itemStyle: { color: "#E0F2FE" },
-          }]
-        : []),
       {
         name: "剩余",
-        value: Math.max(0, denom - view.earned - proj - view.futureReqShown),
+        value: Math.max(0, denom - view.earned - proj),
         itemStyle: { color: "#f3f4f6" },
       },
     ];
@@ -158,9 +153,6 @@ export function CreditRingLegend({ className = "", showFuture = false }: { class
           </span>
         ))}
       </div>
-      <p className="mt-1.5 text-center text-[10px] text-gray-400 leading-relaxed">
-        培养方案的限选学分要求并不一定为毕业要求，详情请咨询当前学院教务处。
-      </p>
     </div>
   );
 }

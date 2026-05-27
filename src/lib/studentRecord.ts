@@ -205,7 +205,7 @@ export async function importStudentRecord(studentId: string): Promise<StudentRec
   // 本地 dev 没起 Functions，/api/* 会回 index.html —— 用 content-type 判一下。
   const ct = res.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
-    throw new Error("接口未部署或返回了非 JSON（本地 dev 请用 wrangler pages dev）。");
+    throw new Error("接口未部署或返回了非 JSON。");
   }
 
   if (res.status === 404) throw new Error("没有该学号的记录。");

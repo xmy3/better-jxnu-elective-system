@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import type { Course, FormalSection, MajorRequirement, PlanCourse } from "../../types";
 import type { CreditPlanView } from "../../lib/creditPlan";
 import { REQUIRED_NATURES } from "../../lib/creditPlan";
-import { termIndexOf, termToCalLabel, enrollYear } from "../../lib/term";
+import { termIndexOf, effectiveTermIndex, termToCalLabel, enrollYear } from "../../lib/term";
 import { buildPlacement, previewSemsOf } from "../../lib/schedulePlacement";
 import { importStudentRecord, deriveInputsFromRecord, type StudentRecord, type ImportSuggestion } from "../../lib/studentRecord";
 import { decodeBundle, type PlanBundle } from "../../lib/planShare";
@@ -127,6 +127,14 @@ export function OnboardingModal({
   const [shareOpen, setShareOpen] = useState(false);
   const [shareCode, setShareCode] = useState("");
   const [shareErr, setShareErr] = useState<string | null>(null);
+  const [copiedCid, setCopiedCid] = useState<string | null>(null);
+  const handleCopyCid = async (cid: string) => {
+    try {
+      await navigator.clipboard.writeText(cid);
+      setCopiedCid(cid);
+      setTimeout(() => setCopiedCid((cur) => (cur === cid ? null : cur)), 1200);
+    } catch {}
+  };
   const handleStartFromShare = async () => {
     setShareErr(null);
     const b = await decodeBundle(shareCode.trim());
@@ -245,15 +253,20 @@ export function OnboardingModal({
 
   // 核对必修：必修性质 + 开课时间 ≤ 在读第term学期。
   //   ti ≤ term-1 = 非本学期必修（已通过，重修/未修可取消）；ti == term = 本学期在读（未考试·仅理论，默认计入，可取消）。
+  //   延迟结算课（形势与政策）按结算学期算 —— 第7学期前落入未来必修（下方未来列表），不出现在「已修核对」里。
   const autoRequiredCourses = useMemo(
     () =>
       planCourses
         .filter((c) => REQUIRED_NATURES.includes(c.nature))
         .filter((c) => {
-          const ti = termIndexOf(c.semester);
+          const ti = effectiveTermIndex(c.cid, c.semester);
           return ti > 0 && ti <= term;
         })
-        .sort((a, b) => termIndexOf(a.semester) - termIndexOf(b.semester) || a.name.localeCompare(b.name)),
+        .sort(
+          (a, b) =>
+            effectiveTermIndex(a.cid, a.semester) - effectiveTermIndex(b.cid, b.semester) ||
+            a.name.localeCompare(b.name),
+        ),
     [planCourses, term],
   );
 
@@ -280,7 +293,7 @@ export function OnboardingModal({
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
                   </svg>
-                  通过学号一键填入
+                  输入学号一键导入
                 </button>
               )}
               <button
@@ -546,7 +559,25 @@ export function OnboardingModal({
                         }`}>
                           {checked && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                         </span>
-                        <span className="flex-1 min-w-0 text-[13px] text-gray-800 truncate">{c.name}</span>
+                        <span className="min-w-0 text-[13px] text-gray-800 truncate">{c.name}</span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] text-gray-400 font-mono">{c.cid}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleCopyCid(c.cid); }}
+                            title="复制课程号"
+                            className={`inline-flex items-center justify-center w-4 h-4 rounded transition-colors ${
+                              copiedCid === c.cid ? "text-green-500" : "text-gray-300 hover:text-gray-600"
+                            }`}
+                          >
+                            {copiedCid === c.cid ? (
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            ) : (
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                            )}
+                          </button>
+                        </span>
+                        <span className="flex-1" />
                         {isTransferAuto && (
                           <span className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1 py-0.5 shrink-0">转专业·原专业已修</span>
                         )}
@@ -632,7 +663,7 @@ export function OnboardingModal({
                     </div>
                   ) : (
                     autoRequiredCourses.map((c) => {
-                      const ti = termIndexOf(c.semester);
+                      const ti = effectiveTermIndex(c.cid, c.semester);
                       const isReading = ti === term;
                       // 转专业前两学期必修：
                       //   matched (transferEarlySet.has)   → 原专业同 cid 自动已抵，正常已修(蓝) + 「已抵」徽章。
@@ -680,6 +711,23 @@ export function OnboardingModal({
                             {active && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                           </span>
                           <span className={`min-w-0 text-[13px] truncate ${nameCls}`}>{c.name}</span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            <span className="text-[11px] text-gray-400 font-mono">{c.cid}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleCopyCid(c.cid); }}
+                              title="复制课程号"
+                              className={`inline-flex items-center justify-center w-4 h-4 rounded transition-colors ${
+                                copiedCid === c.cid ? "text-green-500" : "text-gray-300 hover:text-gray-600"
+                              }`}
+                            >
+                              {copiedCid === c.cid ? (
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                              )}
+                            </button>
+                          </span>
                           {/* 大学英语Ⅲ/Ⅳ：可用「大学英语特色课」1:1 抵扣 —— 显式说明 */}
                           {/大学英语/.test(c.name) && /(Ⅲ|Ⅳ|III|IV|三|四)/.test(c.name) && (
                             <span className="text-[10px] text-indigo-500 shrink-0" title="一门大学英语特色课可 1:1 抵扣一门大学英语Ⅲ/Ⅳ">（或大学英语特色课）</span>
@@ -723,6 +771,23 @@ export function OnboardingModal({
                               {active && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                             </span>
                             <span className={`min-w-0 text-[13px] truncate ${active ? "text-gray-800" : "text-gray-400 line-through"}`}>{c.name}</span>
+                            <span className="flex items-center gap-1 shrink-0">
+                              <span className="text-[11px] text-gray-400 font-mono">{c.cid}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleCopyCid(c.cid); }}
+                                title="复制课程号"
+                                className={`inline-flex items-center justify-center w-4 h-4 rounded transition-colors ${
+                                  copiedCid === c.cid ? "text-green-500" : "text-gray-300 hover:text-gray-600"
+                                }`}
+                              >
+                                {copiedCid === c.cid ? (
+                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                                )}
+                              </button>
+                            </span>
                             <span className="flex-1" />
                             <span className="text-[9px] font-semibold text-sky-700 bg-sky-100 rounded px-1 py-0.5 shrink-0">未来</span>
                             <span className="text-[10px] text-gray-400 font-mono shrink-0">{c.semester}</span>
@@ -789,7 +854,7 @@ export function OnboardingModal({
             <div className="px-4 sm:px-7 pt-5 pb-3 flex items-start justify-between gap-3 border-b border-gray-100 shrink-0">
               <div>
                 <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                  通过学号一键填入
+                  输入学号一键导入
                 </span>
                 <h2 className="text-lg font-black text-gray-900 leading-tight mt-2">从历史课表自动填写</h2>
                 <p className="text-[12px] text-gray-500 mt-1">仅输学号，自动带出方案/在读学期/已修学分/本学期选修/已修限选。</p>

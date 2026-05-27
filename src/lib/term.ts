@@ -54,6 +54,24 @@ export function termIndexOf(label: string): number {
   return c && CN_TERM[c[1]] != null ? CN_TERM[c[1]] : 0;
 }
 
+// 延迟结算课程：计划开课学期 ≠ 学分结算学期，且全程不进周课表。
+//   形势与政策(028010)：多数方案排在第2学期、全员必修，但成绩到第7学期末才结算。
+//   学分核算按「结算学期」(7) 归类 —— 第7学期前不计已修、不自动排课，作为「未来必修」缺口展示。
+const DEFERRED_SETTLEMENT_TERM: Record<string, number> = {
+  "028010": 7, // 形势与政策
+};
+
+/** 该 cid 是否为延迟结算课（按结算学期而非开课学期核算，且不进课表）。 */
+export function isDeferredSettlement(cid: string): boolean {
+  return cid in DEFERRED_SETTLEMENT_TERM;
+}
+
+/** 学分核算用的「有效学期序」：延迟结算课取结算学期，其余等同 termIndexOf(label)。 */
+export function effectiveTermIndex(cid: string, label: string): number {
+  const t = DEFERRED_SETTLEMENT_TERM[cid];
+  return t != null ? t : termIndexOf(label);
+}
+
 /** N → "第N学期"。 */
 export function termLabel(n: number): string {
   return `第${n}学期`;

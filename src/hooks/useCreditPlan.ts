@@ -3,7 +3,7 @@ import type { Course, PlanCourse } from "../types";
 import { useMajorRequirements } from "./useMajorRequirements";
 import { buildCreditPlan, findRequirement, REQUIRED_NATURES } from "../lib/creditPlan";
 import type { CreditInputs } from "../lib/creditPlan";
-import { currentPlanTerm, currentCalTerm, enrollYear, termIndexOf } from "../lib/term";
+import { currentPlanTerm, currentCalTerm, enrollYear, termIndexOf, effectiveTermIndex } from "../lib/term";
 
 // 转专业边界：与 creditPlan.ts 同步（仅用于派生 transferEarlyCids，门控由 buildCreditPlan 内部再判一次）。
 const TRANSFER_BOUNDARY = 2;
@@ -236,7 +236,8 @@ export function useCreditPlan(
     const offset = new Set(stored.transferOffsetCids);
     for (const pc of planCourses) {
       if (!REQUIRED_NATURES.includes(pc.nature)) continue;
-      const ti = termIndexOf(pc.semester);
+      // 延迟结算课（形势与政策）按结算学期算 —— 第7学期前不算已修，不被「隐藏已修课程」误隐。
+      const ti = effectiveTermIndex(pc.cid, pc.semester);
       if (ti <= 0 || ti > term) continue;
       if (excluded.has(pc.cid)) continue;
       // 转专业前两学期未检测到：默认是缺口，不算已修；勾「已抵」(offset) 才算已修。

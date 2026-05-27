@@ -384,18 +384,28 @@ export function HomePage() {
     typeof window !== "undefined" ? window.innerWidth : 1920,
   );
   const headerRef = useRef<HTMLElement>(null);
-  const [headerH, setHeaderH] = useState(0);
+  const searchBarRef = useRef<HTMLDivElement>(null);
+  const [headerBottom, setHeaderBottom] = useState(0);
 
   // 视口 < 1700 时让左栏转抽屉，避免与右详情栏（始终预留 500px）共同把中央表格挤瘦
   const leftAsDrawer = sidebarOpen && viewportW < 1700;
 
   useEffect(() => {
     const measure = () => {
-      if (headerRef.current) setHeaderH(headerRef.current.offsetHeight);
+      const target = searchBarRef.current ?? headerRef.current;
+      if (target) setHeaderBottom(target.getBoundingClientRect().bottom);
     };
     measure();
+    const frame = window.requestAnimationFrame(measure);
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    if (searchBarRef.current) observer?.observe(searchBarRef.current);
+    else if (headerRef.current) observer?.observe(headerRef.current);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   // 窗口缩到 1280 及以下时自动收起左栏；放大不自动展开（尊重用户的手动选择）
@@ -484,7 +494,12 @@ export function HomePage() {
   }
 
   const desktopContentOffset = 40;
-  const stickyTop = (headerH > 0 ? headerH : 120) + desktopContentOffset;
+  // 表格工具栏吸附到搜索栏真实底边，并和搜索栏交叠 2px，避免 sticky 亚像素取整露出背景缝。
+  const stickySeamOverlap = 2;
+  const headerStickyTop = Math.ceil(headerBottom > 0 ? headerBottom : 120);
+  const stickyTop = headerStickyTop + desktopContentOffset;
+  const tableStickyTop = Math.max(0, headerStickyTop - stickySeamOverlap);
+  const headerDividerTop = Math.max(0, headerStickyTop - 1);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -532,7 +547,7 @@ export function HomePage() {
         </div>
 
         {/* Layer 2: White search bar */}
-        <div className="bg-[#F8F9FA] md:bg-white md:border-b md:border-gray-100 md:shadow-sm">
+        <div ref={searchBarRef} className="bg-[#F8F9FA] md:bg-white">
           <div className="max-w-[2000px] mx-auto px-4 md:px-6 py-2 md:py-3 flex items-center gap-4">
             {/* Desktop search - centered */}
             <div className="hidden md:flex flex-1 justify-center">
@@ -595,13 +610,10 @@ export function HomePage() {
         </div>
       </header>
 
-      {/* 模拟选课生效中：header 下一条红色渐变线 */}
-      {sim.mode === "sim" && (
-        <div
-          className="sticky z-30 h-0.5 bg-gradient-to-r from-red-500/0 via-red-500 to-red-500/0"
-          style={{ top: headerH }}
-        />
-      )}
+      <div
+        className="sticky h-1 bg-gray-200"
+        style={{ top: headerDividerTop, zIndex: 35 }}
+      />
 
       {/* Mobile filter drawer — always mounted, animated with translate */}
       <div
@@ -828,7 +840,7 @@ export function HomePage() {
             setSortAsc={filter.setSortAsc}
             ratingSortAsc={filter.ratingSortAsc}
             setRatingSortAsc={filter.setRatingSortAsc}
-            stickyTop={stickyTop}
+            stickyTop={tableStickyTop}
             getCourseAvg={getCourseAvg}
             getTeacherAvg={getTeacherAvg}
             selectedPlan={filter.filters.plan}

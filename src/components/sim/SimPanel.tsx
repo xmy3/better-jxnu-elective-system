@@ -501,15 +501,26 @@ export function SimPanel({
                     onSelect={handleSelectCart}
                     selectedId={selectedCourseId ?? undefined}
                   />
+                  <a
+                    href={JWXT_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full mt-2.5 inline-flex items-center justify-center gap-1.5 text-red-400 hover:text-red-500 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                    </svg>
+                    <span className="text-[12px] font-medium border-b border-dashed border-red-300">点击跳转至学校官方选课系统</span>
+                  </a>
                   {cartCourses.length > 0 && (
                     <button
                       onClick={() => notify("该功能未开放")}
-                      className="w-full mt-2.5 h-9 rounded-xl border border-gray-200 text-[12px] font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 inline-flex items-center justify-center gap-1.5 transition-colors"
+                      className="w-full mt-2 h-9 rounded-xl border border-gray-200 text-[12px] font-medium text-gray-500 hover:border-gray-300 hover:bg-gray-50 inline-flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M4 5h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6a1 1 0 011-1z" />
                       </svg>
-                      生成一键选课命令（开发中）
+                      生成一键选课命令
                     </button>
                   )}
                 </div>
@@ -624,14 +635,6 @@ export function SimPanel({
                         {view.totalRemaining ?? "?"}<span className="text-[12px] text-gray-400 font-medium"> 学分</span>
                       </span>
                     </div>
-                    <a
-                      href={JWXT_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 w-full h-9 rounded-xl bg-red-500 text-white text-[13px] font-bold shadow-sm shadow-red-200 inline-flex items-center justify-center gap-1.5 hover:bg-red-600"
-                    >
-                      跳转到学校选课系统 →
-                    </a>
                   </>
                 )}
               </div>
@@ -655,9 +658,14 @@ export function SimPanel({
           style={{ left: clamp(ringCx, 70, vp.w - 70), top: pos.y - 44 }}
         >
           <div className="px-3 py-1.5 rounded-full bg-gray-900 text-white text-[11px] font-semibold shadow-lg whitespace-nowrap animate-bounce">
-            模拟选课在这里 · 可拖动
+            点击查看模拟选课详细信息
           </div>
-          <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
+          <svg
+            className="w-3 h-1.5 text-gray-900 fill-current mx-auto block -mt-[1px]"
+            viewBox="0 0 12 6"
+          >
+            <path d="M0,0 C3,0 4.5,4.5 6,4.5 C7.5,4.5 9,0 12,0 Z" />
+          </svg>
         </div>
       )}
 

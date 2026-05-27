@@ -381,9 +381,12 @@ export function FormalSectionDetail({
 
           {/* 任课教师（单个） */}
           <div>
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
+            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
               任课教师
             </h3>
+            <p className="text-[11px] text-gray-400 leading-relaxed mb-3">
+              以下评分均为用户主观评价，仅反映其对任课教师在本课程中表现的个人看法，不代表作者立场，仅供参考
+            </p>
             <div className="bg-gray-50 rounded-xl px-4 py-3">
               <div className="flex items-center gap-3.5">
                 <div className="w-9 h-9 rounded-full bg-red-50 text-red-400 flex items-center justify-center text-sm font-semibold shrink-0">
@@ -448,18 +451,19 @@ export function FormalSectionDetail({
             </div>
           </div>
 
-          <p className="text-[11px] text-red-300 text-center leading-relaxed">
-            以上评分均为用户主观评价，仅反映其对任课教师在本课程中表现的个人看法，不代表作者立场，仅供参考
-          </p>
-
-          <a
-            href={`https://xk.jxnu.edu.cn/Step1/AddCourse.aspx?kch=${section.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full py-2.5 rounded-xl bg-red-500 text-white text-sm font-medium text-center hover:bg-red-600 active:bg-red-700 transition-colors"
-          >
-            点击跳转此课程选课界面
-          </a>
+          <div className="text-center">
+            <a
+              href={`https://xk.jxnu.edu.cn/Step1/AddCourse.aspx?kch=${section.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 text-red-400 hover:text-red-500 transition-colors"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+              <span className="text-base font-medium border-b border-dashed border-red-300">点击跳转此课程选课界面</span>
+            </a>
+          </div>
         </div>
       </div>
 
