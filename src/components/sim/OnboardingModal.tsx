@@ -42,6 +42,8 @@ interface Props {
   transferOffsetCids: string[];
   /** 学号导入：一次性写入指定方案的已修信息（避免被方案切换的 loadStored 覆盖）。 */
   importInputs: (plan: string, inputs: Partial<StoredInputs>) => void;
+  /** 按 planKey 取方案课程清单（学号导入算「核对必修」自动缺口用）。 */
+  coursesOf: (key: string) => PlanCourse[];
   /** 转专业模式开关（前两学期在原专业修读）。 */
   transferMode: boolean;
   originalPlan: string;
@@ -92,7 +94,7 @@ export function OnboardingModal({
   selectedPlan, allPlans, onSelectPlan, requirement, view, planCourses, cartCourses, formalSections,
   chosen, onChooseSection, onRemoveCart,
   term, totalEarned, electiveThisSem, takenMajorElectives, excludedRequired,
-  setTotalEarned, setElectiveThisSem, toggleMajorElective, toggleExcludedRequired, importInputs,
+  setTotalEarned, setElectiveThisSem, toggleMajorElective, toggleExcludedRequired, importInputs, coursesOf,
   toggleTransferOffset, transferOffsetCids,
   transferMode, originalPlan, setTransferMode, setOriginalPlan, transferEarlyCids,
   showFutureRequired, setShowFutureRequired,
@@ -155,7 +157,9 @@ export function OnboardingModal({
     setImportLoading(true);
     try {
       const rec = await importStudentRecord(importSid);
-      const sug = deriveInputsFromRecord(rec);
+      const matched = !!(rec.planKey && allPlans.includes(rec.planKey));
+      const plan = matched ? rec.planKey! : selectedPlan;
+      const sug = deriveInputsFromRecord(rec, plan ? coursesOf(plan) : undefined);
       setPreview({ rec, sug });
       setEdit({ totalEarned: sug.totalEarned, electiveThisSem: sug.electiveThisSem });
     } catch (e) {
@@ -165,11 +169,12 @@ export function OnboardingModal({
     }
   };
 
-  // 应用预览：一次性回填引导 5 项（方案/在读学期/已修学分/本学期选修/已修限选）。
+  // 应用预览：一次性回填引导各项（方案/在读学期/已修学分/本学期选修/已修限选/核对必修缺口）。
   // 关键：用 importInputs 直接写【目标方案】的 stored，再 onSelectPlan 切过去 —— 切换后
   //   loadStored 正好读到刚写的值。若先用 setTotalEarned 等再切方案，会被 loadStored 覆盖（学分丢失）。
-  // 不自动排除必修：很多公共必修（形势与政策/红色文化/英语分级…）不进常规课表，
-  //   档案"未出现"≠未修，自动排除会虚高缺口。核对必修保持方案默认，用户需要再手动排。
+  // 核对必修按流程图自动缺口：deriveInputsFromRecord 把「方案要求但档案未修」的必修标缺口（取消勾选），
+  //   但跳过延迟结算课（形势与政策等不进课表的必修），并用大学英语特色课 1:1 顶替缺失的大英Ⅲ/Ⅳ。
+  //   往期快照偶有缺漏可能误判，用户可回核对页手动补勾。
   const handleApplyImport = () => {
     if (!preview) return;
     const { rec, sug } = preview;
@@ -183,15 +188,15 @@ export function OnboardingModal({
         takenMajorElectives: sug.takenMajorElectiveCids,
         transferMode: editTransfer,
         originalPlan: editTransfer ? editOriginalPlan : "",
-        // 「大学英语特色课」抵扣预算：buildCreditPlan 据此自动排除往期未修的 大学英语Ⅲ/Ⅳ 必修缺口。
-        englishOffsetCredits: sug.englishOffsetCredits,
+        // 核对必修自动缺口（deriveInputsFromRecord 已含特色课抵扣逻辑）。
+        excludedRequired: sug.excludedRequiredCids,
       });
     }
     if (matched) onSelectPlan(rec.planKey!);
     setImportOpen(false);
     setEditingPlan(false);
-    // 导入完成 → 直接跳到「下学期必修排课表」页（最后一步）。
-    go(TOTAL);
+    // 导入完成 → 落到「核对必修」页，让用户复核自动勾选/缺口结果。
+    go(4);
   };
 
   // 方案识别纠错（内联）：只更新预览里的 planKey（→ 决定毕业要求/学分映射），保留已查课表数据。
@@ -754,6 +759,46 @@ export function OnboardingModal({
                       );
                     })
                   )}
+                  {showFutureRequired && view.nextSemRequired.length > 0 && (
+                    <>
+                      <div className="mt-3 mb-1 flex items-center gap-1.5 text-[11px] font-bold text-sky-600">
+                        <span className="inline-block w-2.5 h-2.5 rounded-sm bg-[#E0F2FE] border border-sky-200" />
+                        下学期 · 仅规划展示（不计入待选清单）
+                      </div>
+                      {view.nextSemRequired.map((c) => (
+                        <div
+                          key={c.cid}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border bg-sky-50/60 border-sky-100 text-left"
+                        >
+                          <span className="w-4 h-4 rounded border flex items-center justify-center shrink-0 bg-sky-300 border-sky-300 text-white">
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          </span>
+                          <span className="min-w-0 text-[13px] truncate text-gray-800">{c.name}</span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            <span className="text-[11px] text-gray-400 font-mono">{c.cid}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCid(c.cid)}
+                              title="复制课程号"
+                              className={`inline-flex items-center justify-center w-4 h-4 rounded transition-colors ${
+                                copiedCid === c.cid ? "text-green-500" : "text-gray-300 hover:text-gray-600"
+                              }`}
+                            >
+                              {copiedCid === c.cid ? (
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                              ) : (
+                                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" /></svg>
+                              )}
+                            </button>
+                          </span>
+                          <span className="flex-1" />
+                          <span className="text-[9px] font-semibold text-sky-700 bg-sky-100 rounded px-1 py-0.5 shrink-0">下学期·仅规划</span>
+                          <span className="text-[10px] text-gray-400 font-mono shrink-0">{c.semester}</span>
+                          <span className="text-[11px] font-bold text-gray-600 shrink-0">{c.credits}分</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
                   {showFutureRequired && view.futureSemRequired.length > 0 && (
                     <>
                       <div className="mt-3 mb-1 flex items-center gap-1.5 text-[11px] font-bold text-sky-600">
@@ -897,7 +942,8 @@ export function OnboardingModal({
               </div>
               {importErr && <p className="mt-2 text-[12px] text-rose-600">{importErr}</p>}
               <p className="mt-2 text-[11px] text-gray-400 leading-relaxed">
-                数据源无成绩，已修课程一律按「已通过」估算，如有重修课程请前往第「核对」项手动取消。
+                数据源无成绩，已修课程一律按「已通过」估算。方案要求但档案未出现的必修会自动标缺口（取消勾选），
+                若有误判或重修课程请前往第「核对」项手动调整。
               </p>
 
               {/* 预览区 */}

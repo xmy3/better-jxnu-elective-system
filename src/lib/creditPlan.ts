@@ -79,9 +79,6 @@ export interface CreditInputs {
   transferOffsetCids: Set<string>;
   /** 显示未来学期（ti > planTerm）必修课：核对列表追加这批 + 环图浅蓝规划进度（仅展示，不进待选清单）。 */
   showFutureRequired: boolean;
-  /** 已修的「大学英语特色课」学分总数 —— 用于 1:1 抵扣往期培养方案里的 大学英语Ⅲ/Ⅳ 必修缺口。
-   *  来源：学号导入时由 deriveInputsFromRecord 统计 detailCourses 中 nature==="大学英语特色课" 的学分和。 */
-  englishOffsetCredits: number;
 }
 
 /** 红色「下学期理论投影」：下学期自动必修 + 待选清单。 */
@@ -196,7 +193,7 @@ function classOfNature(nature: string): NatureClass {
 }
 
 /** 大学英语 Ⅲ/Ⅳ（可用大学英语特色课抵消）。「（三级）」是级别不是册数，按结尾的 Ⅲ/Ⅳ 判定。 */
-function isEnglishOffsetCourse(name: string): boolean {
+export function isEnglishOffsetCourse(name: string): boolean {
   return name.includes("大学英语") && (name.includes("Ⅲ") || name.includes("Ⅳ"));
 }
 
@@ -209,35 +206,20 @@ export function buildCreditPlan(
   selectedPlan: string,
   inputs: CreditInputs,
 ): CreditPlanView {
-  const { totalEarned, electiveThisSem, term, takenMajorElectives, excludedRequired, transferMode, transferEarlyCids, transferOffsetCids, showFutureRequired, englishOffsetCredits } = inputs;
+  const { totalEarned, electiveThisSem, term, takenMajorElectives, excludedRequired, transferMode, transferEarlyCids, transferOffsetCids, showFutureRequired } = inputs;
   const planTerm = term + 1;
 
   // 必修 / 限选 应修（byNature.sumXf + minMajorElective 权威）。
-  const requiredTotal = requirement
+  // 延迟结算课（形势与政策等）不计入必修满分——它们全程不进 prevReq / readingSem / nextSem。
+  const requiredTotalRaw = requirement
     ? REQUIRED_NATURES_RAW.reduce((s, n) => s + (requirement.byNature[n]?.sumXf ?? 0), 0)
     : 0;
+  const deferredCredits = planCourses
+    .filter((c) => REQUIRED_NATURES.includes(c.nature) && isDeferredSettlement(c.cid))
+    .reduce((s, c) => s + c.credits, 0);
+  const requiredTotal = requiredTotalRaw - deferredCredits;
   const minMajorElective = requirement?.minMajorElective ?? 0;
   const minTotal = requirement?.minTotal ?? null;
-
-  // 「大学英语特色课」抵扣预算：往期(ti ≤ term-1)的 大学英语Ⅲ/Ⅳ 必修 cid 集合，按 ti 升序消耗预算。
-  //   只抵往期 —— 在读/下学期的 Ⅲ/Ⅳ 由 nextSemRequired 的 englishOffsetCids 在排课页单独处理。
-  //   预算单位是学分（特色课通常 2 分一门，对应 Ⅲ 或 Ⅳ 一门 2 分）。
-  const englishOffsetAutoExcluded = new Set<string>();
-  if (englishOffsetCredits > 0) {
-    const prevEnglishOffsetable = planCourses
-      .filter((pc) => REQUIRED_NATURES.includes(pc.nature) && isEnglishOffsetCourse(pc.name))
-      .map((pc) => ({ pc, ti: effectiveTermIndex(pc.cid, pc.semester) }))
-      .filter(({ ti }) => ti > 0 && ti <= term - 1)
-      .sort((a, b) => a.ti - b.ti || a.pc.cid.localeCompare(b.pc.cid));
-    let budget = englishOffsetCredits;
-    for (const { pc } of prevEnglishOffsetable) {
-      if (budget <= 0) break;
-      // 已被用户手动排除的不消耗预算（保留预算给真正未抵的 Ⅲ/Ⅳ）。
-      if (excludedRequired.has(pc.cid)) continue;
-      englishOffsetAutoExcluded.add(pc.cid);
-      budget -= pc.credits;
-    }
-  }
 
   // 必修按学期分三组（排除勾除项）。
   let prevReqCredits = 0; // ti ≤ term-1：非本学期必修（已通过，含在教务总分）
@@ -250,7 +232,7 @@ export function buildCreditPlan(
     // 延迟结算课（如形势与政策）按结算学期归类，不按开课学期 —— 结算前一律是未来必修缺口、永不进课表。
     const ti = effectiveTermIndex(pc.cid, pc.semester);
     if (ti <= 0) continue;
-    const excluded = excludedRequired.has(pc.cid) || englishOffsetAutoExcluded.has(pc.cid);
+    const excluded = excludedRequired.has(pc.cid);
     const matched = transferEarlyCids.has(pc.cid);
     // 转专业前两学期「未检测到」的必修（原专业无同 cid）：默认不计学分（缺口）。
     //   用户在核对页勾「已抵」(transferOffsetCids) = 已从其他课抵掉该学分 → 计入 prevReq。

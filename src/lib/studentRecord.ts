@@ -1,6 +1,8 @@
 // 学生档案导入 —— 形状对齐 D1 student_records.record_json（build_student_records.py 产出）。
 // 引导里输学号+姓名即可一键带出 方案/在读学期/已修学分/本学期选修/已修限选/核对必修，跳过手填。
-import { REQUIRED_NATURES } from "./creditPlan";
+import type { PlanCourse } from "../types";
+import { REQUIRED_NATURES, isEnglishOffsetCourse } from "./creditPlan";
+import { effectiveTermIndex, isDeferredSettlement } from "./term";
 
 /** 课表里的一节课（正在修读的本学期课程）。schedule 与 formal_sections 同口径："星期三-第89节"，多段以 " / " 连接。 */
 export interface StudentScheduleItem {
@@ -138,46 +140,95 @@ export interface ImportSuggestion {
   takenCount: number;
   /** 本学期总学分（必修+选修，仅供展示）。 */
   readingCredits: number;
-  /** 「大学英语特色课」已修学分（用来 1:1 抵扣往期培养方案里的 大学英语Ⅲ/Ⅳ 必修缺口；creditPlan 消耗）。 */
-  englishOffsetCredits: number;
 }
 
 /**
- * 从档案派生引导各步建议值。靠 build 算好的 planTermIndex / nature / readingPlanTerm /
- * requiredCidsUpToReading，纯用 record 自身字段，不依赖 planCourses 加载时序。
- * 注意：源数据无成绩，全部视为已通过（isPassed 恒真）；早期学期快照可能缺失 → 已修学分可能偏低，需提示核对。
+ * 从档案派生引导各步建议值（含特色课抵扣）。
+ * 特色课按序号 1:1 顶替缺失的大英Ⅲ/Ⅳ：抵了的特色课学分挪进 totalEarned（与新增的 prevReq 对消），
+ * 未抵的特色课保持「本学期必修」不进 electiveThisSem。
  */
-export function deriveInputsFromRecord(record: StudentRecord): ImportSuggestion {
+export function deriveInputsFromRecord(record: StudentRecord, planCourses?: PlanCourse[]): ImportSuggestion {
   const term = record.readingPlanTerm;
   const taken = new Set<string>();
+
+  // 收集特色课信息（排序后用于抵扣匹配）。
+  const allSpecials: { courseId: string; pti: number; credits: number }[] = [];
+  for (const c of record.detailCourses) {
+    if (!isPassed(c)) continue;
+    if (c.courseId) taken.add(c.courseId);
+    if (c.nature === "大学英语特色课" && c.courseId) {
+      const pti = c.planTermIndex ?? 0;
+      if (pti > 0) allSpecials.push({ courseId: c.courseId, pti, credits: c.credits });
+    }
+  }
+  allSpecials.sort((a, b) => a.pti - b.pti || a.courseId.localeCompare(b.courseId));
+
+  // 计算哪些缺口被特色课抵了（需要 planCourses 来识别大英Ⅲ/Ⅳ）。
+  const rawMissing = (record.requiredCidsUpToReading ?? []).filter(
+    (cid) => !taken.has(cid) && !isDeferredSettlement(cid),
+  );
+  let coveredCount = 0;
+  if (planCourses && allSpecials.length > 0) {
+    const byCid = new Map(planCourses.map((c) => [c.cid, c]));
+    const englishMissing = rawMissing
+      .filter((cid) => {
+        const pc = byCid.get(cid);
+        return pc != null && isEnglishOffsetCourse(pc.name);
+      })
+      .sort((a, b) => {
+        const pa = byCid.get(a)!;
+        const pb = byCid.get(b)!;
+        return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
+      });
+    coveredCount = Math.min(allSpecials.length, englishMissing.length);
+  }
+  const offsetSpecialIds = new Set(allSpecials.slice(0, coveredCount).map((s) => s.courseId));
+
   let totalEarned = 0;
   let electiveThisSem = 0;
   let readingCredits = 0;
-  // 「大学英语特色课」累计学分 —— 不论 ti，全部计入抵扣预算（往期/本期 特色课都能抵往期 Ⅲ/Ⅳ）。
-  let englishOffsetCredits = 0;
   const takenMajorElectiveCids: string[] = [];
 
   for (const c of record.detailCourses) {
     if (!isPassed(c)) continue;
-    if (c.courseId) taken.add(c.courseId);
     const pti = c.planTermIndex ?? 0;
     const isReading = term != null && term > 0 && pti === term;
-    // 「大学英语特色课」是选择性必修（1:1 抵扣大学英语III/IV），按必修性质处理 —— 禁止计入本学期选修，
-    //   否则会把它当通用选修多算（本学期选修 8 → 6）。
-    const isRequired =
-      c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
-    if (c.nature === "大学英语特色课") englishOffsetCredits += c.credits;
     if (c.nature === "专业限选" && c.courseId) takenMajorElectiveCids.push(c.courseId);
     if (isReading) {
       readingCredits += c.credits;
-      if (!isRequired) electiveThisSem += c.credits;
+      if (c.nature === "大学英语特色课" && c.courseId != null && offsetSpecialIds.has(c.courseId)) {
+        // 抵了缺口的特色课：学分挪进 totalEarned（与新增 prevReq 对消，公式守恒）。
+        totalEarned += c.credits;
+      } else {
+        // 必修（含未抵特色课）不计本学期选修。
+        const isRequired =
+          c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
+        if (!isRequired) electiveThisSem += c.credits;
+      }
     } else {
-      // 往期（含 pti 未知）计入"不含本学期"的已修。
       totalEarned += c.credits;
     }
   }
 
-  const excludedRequiredCids = (record.requiredCidsUpToReading ?? []).filter((cid) => !taken.has(cid));
+  // 核对必修缺口：rawMissing 减去被特色课抵掉的。
+  let excludedRequiredCids: string[];
+  if (planCourses && coveredCount > 0) {
+    const byCid = new Map(planCourses.map((c) => [c.cid, c]));
+    const englishMissingCids = rawMissing
+      .filter((cid) => {
+        const pc = byCid.get(cid);
+        return pc != null && isEnglishOffsetCourse(pc.name);
+      })
+      .sort((a, b) => {
+        const pa = byCid.get(a)!;
+        const pb = byCid.get(b)!;
+        return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
+      });
+    const coveredGapCids = new Set(englishMissingCids.slice(0, coveredCount));
+    excludedRequiredCids = rawMissing.filter((cid) => !coveredGapCids.has(cid));
+  } else {
+    excludedRequiredCids = rawMissing;
+  }
 
   return {
     term: term && term > 0 ? term : undefined,
@@ -187,8 +238,54 @@ export function deriveInputsFromRecord(record: StudentRecord): ImportSuggestion 
     excludedRequiredCids,
     takenCount: taken.size,
     readingCredits,
-    englishOffsetCredits,
   };
+}
+
+/**
+ * 学号导入「核对必修」的自动取消勾选集：培养方案 ti≤在读 的必修全集中、
+ * 档案里没修过的 cid → 标缺口（取消勾选）。两条修正：
+ *   1) 跳过延迟结算课（形势与政策等不进课表的必修），避免误判成缺口。
+ *   2) 大学英语特色课按序号 1:1 顶替缺失的大英Ⅲ/Ⅳ（第1个→Ⅲ，第2个→Ⅳ）。
+ */
+export function computeImportExclusions(record: StudentRecord, planCourses: PlanCourse[]): string[] {
+  const term = record.readingPlanTerm;
+  const taken = new Set<string>();
+  const specialPtis: number[] = [];
+  for (const c of record.detailCourses) {
+    if (!isPassed(c)) continue;
+    if (c.courseId) taken.add(c.courseId);
+    if (c.nature === "大学英语特色课") {
+      const pti = c.planTermIndex ?? 0;
+      if (term != null && term > 0 && pti > 0) specialPtis.push(pti);
+    }
+  }
+  specialPtis.sort((a, b) => a - b);
+
+  const byCid = new Map(planCourses.map((c) => [c.cid, c]));
+  const missing = (record.requiredCidsUpToReading ?? []).filter(
+    (cid) => !taken.has(cid) && !isDeferredSettlement(cid),
+  );
+
+  if (specialPtis.length > 0) {
+    // 按序号：第1个特色课→大英III，第2个→大英IV。
+    const englishMissing = missing
+      .filter((cid) => {
+        const pc = byCid.get(cid);
+        return pc != null && isEnglishOffsetCourse(pc.name);
+      })
+      .sort((a, b) => {
+        const pa = byCid.get(a)!;
+        const pb = byCid.get(b)!;
+        return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
+      });
+
+    const covered = new Set<string>();
+    for (let i = 0; i < Math.min(specialPtis.length, englishMissing.length); i++) {
+      covered.add(englishMissing[i]);
+    }
+    return missing.filter((cid) => !covered.has(cid));
+  }
+  return missing;
 }
 
 /**
