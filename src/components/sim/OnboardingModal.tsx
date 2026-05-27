@@ -428,7 +428,7 @@ export function OnboardingModal({
                       <p className="mt-2 text-[11px] text-gray-400">原专业课程清单加载中或暂无前两学期数据。</p>
                     ) : (
                       <p className="mt-2 text-[11px] text-amber-700">
-                        已识别原专业前两学期 <strong>{transferEarlySet.size}</strong> 门课，其中 <strong>{transferMatchedCount}</strong> 门与转入专业同 cid，将在第 3 / 4 步自动标记为「已抵」；未匹配的转入专业必修默认作缺口，可在第 4 步逐门勾「已抵」计入。
+                        已识别原专业前两学期 <strong>{transferEarlySet.size}</strong> 门课，其中 <strong>{transferMatchedCount}</strong> 门与转入专业同课程号，可互相抵消。
                       </p>
                     )}
                   </div>
@@ -622,7 +622,7 @@ export function OnboardingModal({
                 )}
                 {transferMode && (
                   <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-2 leading-relaxed">
-                    转专业：前两学期「缺口」(虚线框) 默认不计学分。确认已从其他课抵掉学分的，勾「已抵」计入 —— 已修必修只会变多到方案上限，绝不超过你的总学分。
+                    转专业的学分认证系统十分复杂，此图表仅供参考，具体请咨询当前学院教务处。
                   </p>
                 )}
                 <div className="space-y-1 max-h-[380px] overflow-y-auto pr-1">
@@ -689,11 +689,11 @@ export function OnboardingModal({
                             <span className={`text-[9px] font-semibold rounded px-1 py-0.5 shrink-0 ${
                               active ? "text-amber-700 bg-amber-100" : "text-amber-700 bg-amber-50 border border-amber-200"
                             }`}>
-                              {active ? "转专业·已抵" : "转专业·缺口（勾选=已抵）"}
+                              {active ? "转专业·已抵" : "转专业·缺口（勾选=已学分认证）"}
                             </span>
                           )}
                           {isMatched && (
-                            <span className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1 py-0.5 shrink-0">转专业·已抵</span>
+                            <span className="text-[9px] font-semibold text-amber-700 bg-amber-100 rounded px-1 py-0.5 shrink-0">转专业·已学分认证</span>
                           )}
                           {isReading && !isTransferEarly && (
                             <span className="text-[9px] font-semibold text-sky-600 bg-sky-100 rounded px-1 py-0.5 shrink-0">本学期·仅理论</span>
