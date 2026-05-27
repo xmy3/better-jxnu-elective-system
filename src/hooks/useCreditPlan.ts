@@ -25,6 +25,9 @@ export interface StoredInputs {
   showFutureRequired: boolean;
   /** 引导模式：用户是否已浏览过「勾选已修专业限选」步骤（即使没勾任何课也算完成 → 绿✓）。 */
   visitedMajorElective: boolean;
+  /** 已修「大学英语特色课」学分总数（学号导入时由 deriveInputsFromRecord 统计；
+   *  buildCreditPlan 用它 1:1 自动抵扣往期培养方案里未修的 大学英语Ⅲ/Ⅳ 必修缺口）。 */
+  englishOffsetCredits: number;
 }
 
 const EMPTY: StoredInputs = {
@@ -38,6 +41,7 @@ const EMPTY: StoredInputs = {
   transferOffsetCids: [],
   showFutureRequired: false,
   visitedMajorElective: false,
+  englishOffsetCredits: 0,
 };
 
 function simKey(plan: string) {
@@ -213,6 +217,7 @@ export function useCreditPlan(
       transferEarlyCids,
       transferOffsetCids: new Set(stored.transferOffsetCids),
       showFutureRequired: stored.showFutureRequired,
+      englishOffsetCredits: stored.englishOffsetCredits,
     }),
     [stored, term, transferActive, transferEarlyCids],
   );

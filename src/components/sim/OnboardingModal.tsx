@@ -183,6 +183,8 @@ export function OnboardingModal({
         takenMajorElectives: sug.takenMajorElectiveCids,
         transferMode: editTransfer,
         originalPlan: editTransfer ? editOriginalPlan : "",
+        // 「大学英语特色课」抵扣预算：buildCreditPlan 据此自动排除往期未修的 大学英语Ⅲ/Ⅳ 必修缺口。
+        englishOffsetCredits: sug.englishOffsetCredits,
       });
     }
     if (matched) onSelectPlan(rec.planKey!);

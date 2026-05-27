@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from "react";
 import { useCourseData } from "../hooks/useCourseData";
 import { useCourseFilter } from "../hooks/useCourseFilter";
 import { useFormalData } from "../hooks/useFormalData";
@@ -384,27 +384,35 @@ export function HomePage() {
     typeof window !== "undefined" ? window.innerWidth : 1920,
   );
   const headerRef = useRef<HTMLElement>(null);
-  const searchBarRef = useRef<HTMLDivElement>(null);
   const [headerBottom, setHeaderBottom] = useState(0);
 
   // 视口 < 1700 时让左栏转抽屉，避免与右详情栏（始终预留 500px）共同把中央表格挤瘦
   const leftAsDrawer = sidebarOpen && viewportW < 1700;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const measure = () => {
-      const target = searchBarRef.current ?? headerRef.current;
-      if (target) setHeaderBottom(target.getBoundingClientRect().bottom);
+      const next = headerRef.current?.getBoundingClientRect().bottom;
+      if (next !== undefined) {
+        setHeaderBottom((prev) => (Math.abs(prev - next) > 0.25 ? next : prev));
+      }
     };
     measure();
-    const frame = window.requestAnimationFrame(measure);
+    const frames = [
+      window.requestAnimationFrame(measure),
+      window.requestAnimationFrame(() => window.requestAnimationFrame(measure)),
+    ];
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
-    if (searchBarRef.current) observer?.observe(searchBarRef.current);
-    else if (headerRef.current) observer?.observe(headerRef.current);
+    if (headerRef.current) observer?.observe(headerRef.current);
     window.addEventListener("resize", measure);
+    window.addEventListener("load", measure);
+    if ("fonts" in document) {
+      void document.fonts.ready.then(measure);
+    }
     return () => {
-      window.cancelAnimationFrame(frame);
+      frames.forEach((frame) => window.cancelAnimationFrame(frame));
       observer?.disconnect();
       window.removeEventListener("resize", measure);
+      window.removeEventListener("load", measure);
     };
   }, []);
 
@@ -494,12 +502,11 @@ export function HomePage() {
   }
 
   const desktopContentOffset = 40;
-  // 表格工具栏吸附到搜索栏真实底边，并和搜索栏交叠 2px，避免 sticky 亚像素取整露出背景缝。
+  // 表格工具栏吸附到 header 真实底边，并和 header 交叠 2px，避免 sticky 亚像素取整露出背景缝。
   const stickySeamOverlap = 2;
   const headerStickyTop = Math.ceil(headerBottom > 0 ? headerBottom : 120);
   const stickyTop = headerStickyTop + desktopContentOffset;
   const tableStickyTop = Math.max(0, headerStickyTop - stickySeamOverlap);
-  const headerDividerTop = Math.max(0, headerStickyTop - 1);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -547,7 +554,7 @@ export function HomePage() {
         </div>
 
         {/* Layer 2: White search bar */}
-        <div ref={searchBarRef} className="bg-[#F8F9FA] md:bg-white">
+        <div className="bg-[#F8F9FA] md:bg-white">
           <div className="max-w-[2000px] mx-auto px-4 md:px-6 py-2 md:py-3 flex items-center gap-4">
             {/* Desktop search - centered */}
             <div className="hidden md:flex flex-1 justify-center">
@@ -608,12 +615,9 @@ export function HomePage() {
             </div>
           </div>
         </div>
-      </header>
 
-      <div
-        className="sticky h-1 bg-gray-200"
-        style={{ top: headerDividerTop, zIndex: 35 }}
-      />
+        <div className="h-1 bg-gray-200" />
+      </header>
 
       {/* Mobile filter drawer — always mounted, animated with translate */}
       <div

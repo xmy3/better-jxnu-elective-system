@@ -138,6 +138,8 @@ export interface ImportSuggestion {
   takenCount: number;
   /** 本学期总学分（必修+选修，仅供展示）。 */
   readingCredits: number;
+  /** 「大学英语特色课」已修学分（用来 1:1 抵扣往期培养方案里的 大学英语Ⅲ/Ⅳ 必修缺口；creditPlan 消耗）。 */
+  englishOffsetCredits: number;
 }
 
 /**
@@ -151,6 +153,8 @@ export function deriveInputsFromRecord(record: StudentRecord): ImportSuggestion 
   let totalEarned = 0;
   let electiveThisSem = 0;
   let readingCredits = 0;
+  // 「大学英语特色课」累计学分 —— 不论 ti，全部计入抵扣预算（往期/本期 特色课都能抵往期 Ⅲ/Ⅳ）。
+  let englishOffsetCredits = 0;
   const takenMajorElectiveCids: string[] = [];
 
   for (const c of record.detailCourses) {
@@ -162,6 +166,7 @@ export function deriveInputsFromRecord(record: StudentRecord): ImportSuggestion 
     //   否则会把它当通用选修多算（本学期选修 8 → 6）。
     const isRequired =
       c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
+    if (c.nature === "大学英语特色课") englishOffsetCredits += c.credits;
     if (c.nature === "专业限选" && c.courseId) takenMajorElectiveCids.push(c.courseId);
     if (isReading) {
       readingCredits += c.credits;
@@ -182,6 +187,7 @@ export function deriveInputsFromRecord(record: StudentRecord): ImportSuggestion 
     excludedRequiredCids,
     takenCount: taken.size,
     readingCredits,
+    englishOffsetCredits,
   };
 }
 
