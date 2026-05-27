@@ -143,47 +143,13 @@ export interface ImportSuggestion {
 }
 
 /**
- * 从档案派生引导各步建议值（含特色课抵扣）。
- * 特色课按序号 1:1 顶替缺失的大英Ⅲ/Ⅳ：抵了的特色课学分挪进 totalEarned（与新增的 prevReq 对消），
- * 未抵的特色课保持「本学期必修」不进 electiveThisSem。
+ * 从档案派生引导各步建议值。
+ * 特色课始终当必修处理（不进 electiveThisSem）。
+ * 抵扣逻辑在 computeImportExclusions 里，此处不涉及。
  */
-export function deriveInputsFromRecord(record: StudentRecord, planCourses?: PlanCourse[]): ImportSuggestion {
+export function deriveInputsFromRecord(record: StudentRecord): ImportSuggestion {
   const term = record.readingPlanTerm;
   const taken = new Set<string>();
-
-  // 收集特色课信息（排序后用于抵扣匹配）。
-  const allSpecials: { courseId: string; pti: number; credits: number }[] = [];
-  for (const c of record.detailCourses) {
-    if (!isPassed(c)) continue;
-    if (c.courseId) taken.add(c.courseId);
-    if (c.nature === "大学英语特色课" && c.courseId) {
-      const pti = c.planTermIndex ?? 0;
-      if (pti > 0) allSpecials.push({ courseId: c.courseId, pti, credits: c.credits });
-    }
-  }
-  allSpecials.sort((a, b) => a.pti - b.pti || a.courseId.localeCompare(b.courseId));
-
-  // 计算哪些缺口被特色课抵了（需要 planCourses 来识别大英Ⅲ/Ⅳ）。
-  const rawMissing = (record.requiredCidsUpToReading ?? []).filter(
-    (cid) => !taken.has(cid) && !isDeferredSettlement(cid),
-  );
-  let coveredCount = 0;
-  if (planCourses && allSpecials.length > 0) {
-    const byCid = new Map(planCourses.map((c) => [c.cid, c]));
-    const englishMissing = rawMissing
-      .filter((cid) => {
-        const pc = byCid.get(cid);
-        return pc != null && isEnglishOffsetCourse(pc.name);
-      })
-      .sort((a, b) => {
-        const pa = byCid.get(a)!;
-        const pb = byCid.get(b)!;
-        return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
-      });
-    coveredCount = Math.min(allSpecials.length, englishMissing.length);
-  }
-  const offsetSpecialIds = new Set(allSpecials.slice(0, coveredCount).map((s) => s.courseId));
-
   let totalEarned = 0;
   let electiveThisSem = 0;
   let readingCredits = 0;
@@ -191,45 +157,24 @@ export function deriveInputsFromRecord(record: StudentRecord, planCourses?: Plan
 
   for (const c of record.detailCourses) {
     if (!isPassed(c)) continue;
+    if (c.courseId) taken.add(c.courseId);
     const pti = c.planTermIndex ?? 0;
     const isReading = term != null && term > 0 && pti === term;
     if (c.nature === "专业限选" && c.courseId) takenMajorElectiveCids.push(c.courseId);
     if (isReading) {
       readingCredits += c.credits;
-      if (c.nature === "大学英语特色课" && c.courseId != null && offsetSpecialIds.has(c.courseId)) {
-        // 本学期 offset 特色课：不在 totalEarned 里（reading），计为非必修进 electiveThisSem，
-        // 与新增 prevReq 对消（prevReq +2, electiveThisSem +2 → 净 0）。
-        electiveThisSem += c.credits;
-      } else {
-        // 必修（含未抵特色课）不计本学期选修。
-        const isRequired =
-          c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
-        if (!isRequired) electiveThisSem += c.credits;
-      }
+      // 必修（含大学英语特色课）不计本学期选修。
+      const isRequired =
+        c.nature != null && (REQUIRED_NATURES.includes(c.nature) || c.nature === "大学英语特色课");
+      if (!isRequired) electiveThisSem += c.credits;
     } else {
       totalEarned += c.credits;
     }
   }
 
-  // 核对必修缺口：rawMissing 减去被特色课抵掉的。
-  let excludedRequiredCids: string[];
-  if (planCourses && coveredCount > 0) {
-    const byCid = new Map(planCourses.map((c) => [c.cid, c]));
-    const englishMissingCids = rawMissing
-      .filter((cid) => {
-        const pc = byCid.get(cid);
-        return pc != null && isEnglishOffsetCourse(pc.name);
-      })
-      .sort((a, b) => {
-        const pa = byCid.get(a)!;
-        const pb = byCid.get(b)!;
-        return effectiveTermIndex(pa.cid, pa.semester) - effectiveTermIndex(pb.cid, pb.semester);
-      });
-    const coveredGapCids = new Set(englishMissingCids.slice(0, coveredCount));
-    excludedRequiredCids = rawMissing.filter((cid) => !coveredGapCids.has(cid));
-  } else {
-    excludedRequiredCids = rawMissing;
-  }
+  const excludedRequiredCids = (record.requiredCidsUpToReading ?? []).filter(
+    (cid) => !taken.has(cid) && !isDeferredSettlement(cid),
+  );
 
   return {
     term: term && term > 0 ? term : undefined,

@@ -42,8 +42,6 @@ interface Props {
   transferOffsetCids: string[];
   /** 学号导入：一次性写入指定方案的已修信息（避免被方案切换的 loadStored 覆盖）。 */
   importInputs: (plan: string, inputs: Partial<StoredInputs>) => void;
-  /** 按 planKey 取方案课程清单（学号导入算「核对必修」自动缺口用）。 */
-  coursesOf: (key: string) => PlanCourse[];
   /** 转专业模式开关（前两学期在原专业修读）。 */
   transferMode: boolean;
   originalPlan: string;
@@ -94,7 +92,7 @@ export function OnboardingModal({
   selectedPlan, allPlans, onSelectPlan, requirement, view, planCourses, cartCourses, formalSections,
   chosen, onChooseSection, onRemoveCart,
   term, totalEarned, electiveThisSem, takenMajorElectives, excludedRequired,
-  setTotalEarned, setElectiveThisSem, toggleMajorElective, toggleExcludedRequired, importInputs, coursesOf,
+  setTotalEarned, setElectiveThisSem, toggleMajorElective, toggleExcludedRequired, importInputs,
   toggleTransferOffset, transferOffsetCids,
   transferMode, originalPlan, setTransferMode, setOriginalPlan, transferEarlyCids,
   showFutureRequired, setShowFutureRequired,
@@ -157,9 +155,7 @@ export function OnboardingModal({
     setImportLoading(true);
     try {
       const rec = await importStudentRecord(importSid);
-      const matched = !!(rec.planKey && allPlans.includes(rec.planKey));
-      const plan = matched ? rec.planKey! : selectedPlan;
-      const sug = deriveInputsFromRecord(rec, plan ? coursesOf(plan) : undefined);
+      const sug = deriveInputsFromRecord(rec);
       setPreview({ rec, sug });
       setEdit({ totalEarned: sug.totalEarned, electiveThisSem: sug.electiveThisSem });
     } catch (e) {

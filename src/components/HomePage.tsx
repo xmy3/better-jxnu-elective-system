@@ -978,7 +978,6 @@ export function HomePage() {
           toggleTransferOffset={credit.toggleTransferOffset}
           transferOffsetCids={credit.stored.transferOffsetCids}
           importInputs={credit.importInputs}
-          coursesOf={planCourses.coursesOf}
           transferMode={credit.stored.transferMode}
           originalPlan={credit.stored.originalPlan}
           setTransferMode={credit.setTransferMode}
