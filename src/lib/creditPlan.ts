@@ -210,14 +210,9 @@ export function buildCreditPlan(
   const planTerm = term + 1;
 
   // 必修 / 限选 应修（byNature.sumXf + minMajorElective 权威）。
-  // 延迟结算课（形势与政策等）不计入必修满分——它们全程不进 prevReq / readingSem / nextSem。
-  const requiredTotalRaw = requirement
+  const requiredTotal = requirement
     ? REQUIRED_NATURES_RAW.reduce((s, n) => s + (requirement.byNature[n]?.sumXf ?? 0), 0)
     : 0;
-  const deferredCredits = planCourses
-    .filter((c) => REQUIRED_NATURES.includes(c.nature) && isDeferredSettlement(c.cid))
-    .reduce((s, c) => s + c.credits, 0);
-  const requiredTotal = requiredTotalRaw - deferredCredits;
   const minMajorElective = requirement?.minMajorElective ?? 0;
   const minTotal = requirement?.minTotal ?? null;
 
