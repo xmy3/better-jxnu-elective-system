@@ -566,7 +566,7 @@ export function CourseTable({
       {/* ===== 移动端 ===== */}
       <div className="md:hidden">
         {/* Mobile toolbar: 数据源切换 */}
-        <div className="flex items-center justify-between px-1 pt-1 pb-2.5 bg-[#F8F9FA]">
+        <div className="flex items-center justify-between px-1 pt-1 pb-2.5 bg-page">
           <DataSourceSwitcher value={dataSource} onChange={onChangeDataSource} />
         </div>
 
@@ -670,7 +670,7 @@ export function CourseTable({
         ) : (
           <>
             {/* Sort bar */}
-            <div className="flex items-center gap-2 pb-2.5 px-1 bg-[#F8F9FA]">
+            <div className="flex items-center gap-2 pb-2.5 px-1 bg-page">
               <span className="text-[11px] text-gray-400 shrink-0">排序</span>
               <button
                 onClick={handleSort}

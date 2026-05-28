@@ -1,11 +1,26 @@
 @import "tailwindcss";
 
+/* `.dark` 类驱动暗色变量切换（注册成 Tailwind 自定义变体，便于组件局部用 `dark:`） */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 语义色：注册到 @theme，自动生成 bg-page / bg-brand 等工具类。
+   组件层只读这些语义名，主题切换只需在 `.dark` 改这一份变量值。 */
+@theme {
+  --color-page: #F8F9FA;
+  --color-card: #FFFFFF;
+  --color-ink: #1F2937;
+  --color-brand: #CC3C3C;
+  --color-brand-hover: #B83333;
+  --color-brand-fg: #FFFFFF;
+  --color-header-bg: #CC3C3C;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: #F8F9FA;
-  color: #1F2937;
+  background: var(--color-page);
+  color: var(--color-ink);
 }
 
 /* 全局轻量滚动条 —— 比浏览器默认浅且更细 */
