@@ -4,7 +4,7 @@ import type { CreditPlanView } from "../../lib/creditPlan";
 import { REQUIRED_NATURES } from "../../lib/creditPlan";
 import { termIndexOf, effectiveTermIndex, termToCalLabel, enrollYear } from "../../lib/term";
 import { buildPlacement, previewSemsOf } from "../../lib/schedulePlacement";
-import { importStudentRecord, deriveInputsFromRecord, type StudentRecord, type ImportSuggestion } from "../../lib/studentRecord";
+import { importStudentRecord, deriveInputsFromRecord, isPassed, type StudentRecord, type ImportSuggestion } from "../../lib/studentRecord";
 import { decodeBundle, type PlanBundle } from "../../lib/planShare";
 import type { StoredInputs } from "../../hooks/useCreditPlan";
 import { STUDENT_IMPORT_ENABLED } from "../../lib/featureFlags";
@@ -190,6 +190,10 @@ export function OnboardingModal({
         originalPlan: editTransfer ? editOriginalPlan : "",
         // 核对必修自动缺口（deriveInputsFromRecord 已含特色课抵扣逻辑）。
         excludedRequired: sug.excludedRequiredCids,
+        // 学号导入的真实已修 cid（仅 isPassed）→ 驱动「隐藏已修课程」用真实档案。
+        importedTakenCids: rec.detailCourses
+          .filter((c) => isPassed(c) && !!c.courseId)
+          .map((c) => c.courseId),
       });
     }
     if (matched) onSelectPlan(rec.planKey!);

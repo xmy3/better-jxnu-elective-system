@@ -25,6 +25,8 @@ export interface StoredInputs {
   showFutureRequired: boolean;
   /** 引导模式：用户是否已浏览过「勾选已修专业限选」步骤（即使没勾任何课也算完成 → 绿✓）。 */
   visitedMajorElective: boolean;
+  /** 学号导入的真实已修 cid（按 isPassed 过滤）。空数组 = 未导入 / 已清空，走启发式。 */
+  importedTakenCids: string[];
 }
 
 const EMPTY: StoredInputs = {
@@ -38,6 +40,7 @@ const EMPTY: StoredInputs = {
   transferOffsetCids: [],
   showFutureRequired: false,
   visitedMajorElective: false,
+  importedTakenCids: [],
 };
 
 function simKey(plan: string) {
@@ -224,30 +227,49 @@ export function useCreditPlan(
 
   const transferEarlyCidArray = useMemo(() => [...transferEarlyCids], [transferEarlyCids]);
 
-  // 已修课程 cid 集合（驱动「隐藏已修课程」筛选）：
-  //   - 本方案 ti ≤ term-1 必修（未 excluded） —— 默认按方案推算为已修
-  //   - 本方案 ti == term 在读必修（未 excluded） —— 已选/已在读
-  //   - 已勾选的专业限选
-  //   - 转专业匹配的同 cid 课程（已抵转入专业）
-  // 不含 nextSemRequired / nextSemRequiredExcluded（那是下学期要选的，不应被隐藏）。
+  // 已修课程 cid 集合（驱动「隐藏已修课程」筛选）。两支：
+  //   - 真实分支（importedTakenCids 非空）：以学号导入的档案为准（含公选/任选/方案外课），
+  //     仍叠加在读必修（档案无成绩，本学期课不在 detailCourses）；用户 untick「未修」可减去。
+  //   - 启发式分支：本方案 ti ≤ term 必修（默认按方案推算为已修/在读）。
+  // 两支都额外 union 专业限选已勾 + 转专业匹配 cid。
+  // 不含 nextSemRequired（下学期要选的，不应被隐藏）。
   const takenCids = useMemo(() => {
     const set = new Set<string>();
     const excluded = new Set(stored.excludedRequired);
     const offset = new Set(stored.transferOffsetCids);
-    for (const pc of planCourses) {
-      if (!REQUIRED_NATURES.includes(pc.nature)) continue;
-      // 延迟结算课（形势与政策）按结算学期算 —— 第7学期前不算已修，不被「隐藏已修课程」误隐。
-      const ti = effectiveTermIndex(pc.cid, pc.semester);
-      if (ti <= 0 || ti > term) continue;
-      if (excluded.has(pc.cid)) continue;
-      // 转专业前两学期未检测到：默认是缺口，不算已修；勾「已抵」(offset) 才算已修。
-      if (transferActive && ti <= 2 && !transferEarlyCids.has(pc.cid) && !offset.has(pc.cid)) continue;
-      set.add(pc.cid);
+    const imported = stored.importedTakenCids;
+
+    if (imported.length > 0) {
+      for (const cid of imported) {
+        if (excluded.has(cid)) continue;
+        set.add(cid);
+      }
+      // 在读学期必修补齐（档案里没成绩）。
+      for (const pc of planCourses) {
+        if (!REQUIRED_NATURES.includes(pc.nature)) continue;
+        const ti = effectiveTermIndex(pc.cid, pc.semester);
+        if (ti !== term) continue;
+        if (excluded.has(pc.cid)) continue;
+        if (transferActive && ti <= 2 && !transferEarlyCids.has(pc.cid) && !offset.has(pc.cid)) continue;
+        set.add(pc.cid);
+      }
+    } else {
+      for (const pc of planCourses) {
+        if (!REQUIRED_NATURES.includes(pc.nature)) continue;
+        // 延迟结算课（形势与政策）按结算学期算 —— 第7学期前不算已修，不被「隐藏已修课程」误隐。
+        const ti = effectiveTermIndex(pc.cid, pc.semester);
+        if (ti <= 0 || ti > term) continue;
+        if (excluded.has(pc.cid)) continue;
+        // 转专业前两学期未检测到：默认是缺口，不算已修；勾「已抵」(offset) 才算已修。
+        if (transferActive && ti <= 2 && !transferEarlyCids.has(pc.cid) && !offset.has(pc.cid)) continue;
+        set.add(pc.cid);
+      }
     }
+
     for (const cid of stored.takenMajorElectives) set.add(cid);
     for (const cid of transferEarlyCids) set.add(cid);
     return set;
-  }, [planCourses, term, stored.excludedRequired, stored.takenMajorElectives, stored.transferOffsetCids, transferActive, transferEarlyCids]);
+  }, [planCourses, term, stored.excludedRequired, stored.takenMajorElectives, stored.transferOffsetCids, stored.importedTakenCids, transferActive, transferEarlyCids]);
 
   return {
     view,
