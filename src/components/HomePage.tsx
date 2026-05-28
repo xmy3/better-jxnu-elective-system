@@ -23,6 +23,7 @@ import { SimToggle } from "./sim/SimToggle";
 import { SimPanel } from "./sim/SimPanel";
 import { OnboardingModal } from "./sim/OnboardingModal";
 import { ConfirmDialog } from "./sim/ConfirmDialog";
+import { ThemeToggle } from "./ThemeToggle";
 import type { Course, DataSource, FormalSection } from "../types";
 
 const DATA_SOURCE_KEY = "jxnu_data_source";
@@ -561,6 +562,8 @@ export function HomePage() {
               <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.8)" }}>江西师范大学</span>
             </div>
             <div className="flex items-center gap-2.5">
+              {/* 主题切换：桌面 / 手机统一放顶部红条右侧 */}
+              <ThemeToggle />
               {/* 模拟选课开关：仅手机端 (<md) 显示（桌面端在搜索行）。 */}
               <button
                 onClick={sim.toggle}

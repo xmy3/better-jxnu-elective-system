@@ -15,6 +15,18 @@
   --color-header-bg: #CC3C3C;
 }
 
+/* 暗色主题：方案 3「中性深 + 红色点缀」+ 强调色 #A33（暗哑红）。
+   只覆盖语义变量，组件层无需感知。 */
+.dark {
+  --color-page: #121212;
+  --color-card: #1E1E1E;
+  --color-ink: #E5E7EB;
+  --color-brand: #A33;
+  --color-brand-hover: #B84444;
+  --color-brand-fg: #FFFFFF;
+  --color-header-bg: #1A1A1A;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -23,10 +35,58 @@ body {
   color: var(--color-ink);
 }
 
+/* ───────── 暗色模式：全局补丁层 ─────────
+   原项目大量使用 Tailwind 灰阶硬编码（gray-50/100/200/.../900、bg-white、text-gray-*）。
+   组件级逐一加 dark: variant 改动量太大，这里用属性选择器在 .dark 下统一映射到深色等价值，
+   保证全站零遗漏。色值梯度参照亮色 gray-50→gray-900 的明度反转。 */
+
+/* 卡片 / 弹窗 / 抽屉等"白底"在暗色下统一变 card 色 */
+.dark .bg-white { background-color: var(--color-card) !important; }
+
+/* 灰阶背景 —— 由浅到深，对应深色由略亮到略暗 */
+.dark .bg-gray-50  { background-color: #1A1A1A !important; }
+.dark .bg-gray-100 { background-color: #2A2A2A !important; }
+.dark .bg-gray-200 { background-color: #333333 !important; }
+.dark .bg-gray-300 { background-color: #3D3D3D !important; }
+.dark .bg-gray-800 { background-color: #E5E7EB !important; }
+.dark .bg-gray-900 { background-color: #F3F4F6 !important; }
+
+/* 文本灰阶 —— 亮色 text-gray-N 在暗色映射为对应明度的浅灰 */
+.dark .text-gray-300 { color: #6B7280 !important; }
+.dark .text-gray-400 { color: #9CA3AF !important; }
+.dark .text-gray-500 { color: #B5BCC4 !important; }
+.dark .text-gray-600 { color: #D1D5DB !important; }
+.dark .text-gray-700 { color: #E5E7EB !important; }
+.dark .text-gray-800 { color: #F3F4F6 !important; }
+.dark .text-gray-900 { color: #F9FAFB !important; }
+
+/* 边框灰阶 */
+.dark .border-gray-100 { border-color: #2A2A2A !important; }
+.dark .border-gray-200 { border-color: #333333 !important; }
+.dark .border-gray-300 { border-color: #3D3D3D !important; }
+
+/* 红色家族 —— 在深色背景上把高饱和红压暗一档，与品牌强调色 #A33 一致 */
+.dark .text-red-500 { color: #E26B6B !important; }
+.dark .text-red-600 { color: #D85555 !important; }
+.dark .text-red-700 { color: #C84444 !important; }
+.dark .bg-red-50  { background-color: rgba(170, 51, 51, 0.10) !important; }
+.dark .bg-red-100 { background-color: rgba(170, 51, 51, 0.18) !important; }
+.dark .bg-red-500 { background-color: #A33 !important; }
+.dark .bg-red-600 { background-color: #952F2F !important; }
+.dark .border-red-200 { border-color: rgba(170, 51, 51, 0.35) !important; }
+.dark .border-red-300 { border-color: rgba(170, 51, 51, 0.45) !important; }
+
+/* placeholder：亮色用 placeholder-gray-300 等，暗色压成更暗的灰避免抢眼 */
+.dark .placeholder-gray-300::placeholder { color: #4A4A4A !important; }
+.dark .placeholder-gray-400::placeholder { color: #5A5A5A !important; }
+
 /* 全局轻量滚动条 —— 比浏览器默认浅且更细 */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+}
+.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 *::-webkit-scrollbar {
   width: 6px;
@@ -40,8 +100,14 @@ body {
   border-radius: 3px;
   transition: background-color 0.2s ease;
 }
+.dark *::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.12);
+}
 *::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.16);
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.22);
 }
 *::-webkit-scrollbar-corner {
   background: transparent;
@@ -74,5 +140,14 @@ body {
     #fef2f2 5px,
     #fecaca 5px,
     #fecaca 10px
+  );
+}
+.dark .sim-cell-conflict {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(170, 51, 51, 0.18) 0,
+    rgba(170, 51, 51, 0.18) 5px,
+    rgba(170, 51, 51, 0.36) 5px,
+    rgba(170, 51, 51, 0.36) 10px
   );
 }
