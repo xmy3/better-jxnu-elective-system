@@ -124,6 +124,12 @@ export function HomePage() {
   }, [filter.filters.plan, currentPlan]);
   const chosenSections = useChosenSections();
 
+  const clearAllFilters = () => {
+    filter.clearAll();
+    schedule.clear();
+  };
+  const hasAnyActiveFilters = filter.hasActiveFilters || schedule.active;
+
   // 方案分享码恢复：覆盖 plan + StoredInputs + cart + chosenSections，并直接进入 sim 态。
   const handleApplyBundle = useCallback(
     (b: PlanBundle) => {
@@ -693,8 +699,8 @@ export function HomePage() {
               cycleTag={filter.cycleTag}
               cycleArea={filter.cycleArea}
               cyclePlanFilter={filter.cyclePlanFilter}
-              clearAll={filter.clearAll}
-              hasActiveFilters={filter.hasActiveFilters}
+              clearAll={clearAllFilters}
+              hasActiveFilters={hasAnyActiveFilters}
               allDepts={allDepts}
               allCredits={allCredits}
               allPlans={allPlans}              courseTypes={courseTypes}
@@ -751,8 +757,8 @@ export function HomePage() {
               cycleTag={filter.cycleTag}
               cycleArea={filter.cycleArea}
               cyclePlanFilter={filter.cyclePlanFilter}
-              clearAll={filter.clearAll}
-              hasActiveFilters={filter.hasActiveFilters}
+              clearAll={clearAllFilters}
+              hasActiveFilters={hasAnyActiveFilters}
               allDepts={allDepts}
               allCredits={allCredits}
               allPlans={allPlans}              courseTypes={courseTypes}
@@ -854,8 +860,8 @@ export function HomePage() {
                 cycleTag={filter.cycleTag}
                 cycleArea={filter.cycleArea}
                 cyclePlanFilter={filter.cyclePlanFilter}
-                clearAll={filter.clearAll}
-                hasActiveFilters={filter.hasActiveFilters}
+                clearAll={clearAllFilters}
+                hasActiveFilters={hasAnyActiveFilters}
                 allDepts={allDepts}
                 allCredits={allCredits}
                 allPlans={allPlans}                courseTypes={courseTypes}

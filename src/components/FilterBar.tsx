@@ -50,7 +50,17 @@ export function FilterBar({
 
   return (
     <div className="space-y-6">
-      <FilterSection label="培养方案">
+      <FilterSection
+        label="培养方案"
+        activeCount={(filters.plan ? 1 : 0) + (filters.planFilter !== "none" ? 1 : 0) + (filters.hideTaken ? 1 : 0)}
+        onClear={() => {
+          if (filters.plan) updateFilter("plan", "");
+          if (filters.planFilter !== "none") updateFilter("planFilter", "none");
+          if (filters.hideTaken) updateFilter("hideTaken", false);
+          if (filters.type.includes(ANY_ELECTIVE)) updateFilter("type", filters.type.filter((x) => x !== ANY_ELECTIVE));
+          if (filters.typeExclude.includes(ANY_ELECTIVE)) updateFilter("typeExclude", filters.typeExclude.filter((x) => x !== ANY_ELECTIVE));
+        }}
+      >
         <PlanSelector
           value={filters.plan}
           onChange={(v) => {
@@ -90,7 +100,14 @@ export function FilterBar({
         )}
       </FilterSection>
 
-      <FilterSection label="课程类型">
+      <FilterSection
+        label="课程类型"
+        activeCount={filters.type.length + filters.typeExclude.length}
+        onClear={() => {
+          updateFilter("type", []);
+          updateFilter("typeExclude", []);
+        }}
+      >
         <div className="flex flex-wrap gap-1.5">
           {courseTypes.map((t) => {
             if (t === ANY_ELECTIVE) {
@@ -122,7 +139,14 @@ export function FilterBar({
         )}
       </FilterSection>
 
-      <FilterSection label="学分">
+      <FilterSection
+        label="学分"
+        activeCount={filters.credits.length + filters.creditsExclude.length}
+        onClear={() => {
+          updateFilter("credits", []);
+          updateFilter("creditsExclude", []);
+        }}
+      >
         <div className="flex flex-wrap gap-1.5">
           {allCredits.map((c) => (
             <FilterBtn
@@ -135,7 +159,14 @@ export function FilterBar({
       </FilterSection>
 
       {subTags.length > 0 && (
-        <FilterSection label="标签">
+        <FilterSection
+          label="标签"
+          activeCount={filters.tag.length + filters.tagExclude.length}
+          onClear={() => {
+            updateFilter("tag", []);
+            updateFilter("tagExclude", []);
+          }}
+        >
           <div className="flex flex-wrap gap-1.5">
             {subTags.map((t) => (
               <FilterBtn
@@ -154,6 +185,10 @@ export function FilterBar({
           collapsible
           defaultCollapsed
           activeCount={filters.area.length + filters.areaExclude.length}
+          onClear={() => {
+            updateFilter("area", []);
+            updateFilter("areaExclude", []);
+          }}
         >
           <div className="space-y-3">
             {AREA_GROUPS.map((g) => (
@@ -186,6 +221,10 @@ export function FilterBar({
         collapsible
         defaultCollapsed
         activeCount={filters.dept.length + filters.deptExclude.length}
+        onClear={() => {
+          updateFilter("dept", []);
+          updateFilter("deptExclude", []);
+        }}
       >
         <div className="flex flex-wrap gap-1.5">
           {allDepts.map((d) => (
@@ -217,6 +256,7 @@ function FilterSection({
   defaultCollapsed = false,
   activeCount = 0,
   peekHeight = 100,
+  onClear,
 }: {
   label: string;
   children: React.ReactNode;
@@ -226,16 +266,30 @@ function FilterSection({
   activeCount?: number;
   /** 折叠态露出的高度（px）；超出部分被底部渐变遮挡。 */
   peekHeight?: number;
+  /** 该分组的"清空"回调；activeCount > 0 时在标题右侧出现小按钮。 */
+  onClear?: () => void;
 }) {
   const [expanded, setExpanded] = useState(!(collapsible && defaultCollapsed));
 
   const header = (
-    <div className="flex items-center gap-1.5 mb-2.5 text-[11px] text-gray-500 font-medium uppercase tracking-wider">
-      {label}
-      {activeCount > 0 && (
-        <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold normal-case tracking-normal">
-          {activeCount}
-        </span>
+    <div className="flex items-center justify-between mb-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium uppercase tracking-wider">
+        {label}
+        {activeCount > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold normal-case tracking-normal">
+            {activeCount}
+          </span>
+        )}
+      </div>
+      {onClear && activeCount > 0 && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onClear(); }}
+          title={`清空「${label}」`}
+          className="text-[11px] normal-case tracking-normal text-gray-400 hover:text-rose-500 transition-colors"
+        >
+          清空
+        </button>
       )}
     </div>
   );
