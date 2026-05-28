@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import type { Course, FormalSection } from "../../types";
 import type { CreditPlanView } from "../../lib/creditPlan";
+import { courseNature, REQUIRED_NATURES } from "../../lib/creditPlan";
 import { enrollYear, termToCalLabel } from "../../lib/term";
 import { buildPlacement } from "../../lib/schedulePlacement";
 import { copyText } from "../../lib/clipboard";
@@ -37,6 +38,12 @@ interface Props {
   /** 显示未来学期必修课开关（毕业核算环图浅蓝；与引导共享持久化）。 */
   showFutureRequired: boolean;
   setShowFutureRequired: (v: boolean) => void;
+  /** 校外慕课抵扣开关（勾选 = 选修 +5 学分）。 */
+  moocOffset: boolean;
+  setMoocOffset: (v: boolean) => void;
+  /** 赛事学分抵扣（浮点，直接加到选修）。 */
+  competitionOffset: number;
+  setCompetitionOffset: (v: number) => void;
 }
 
 const JWXT_URL = "https://xk.jxnu.edu.cn/";
@@ -77,6 +84,7 @@ export function SimPanel({
   view, cartCourses, selectedPlan, term, formalSections, chosen, onChooseSection,
   onRemove, onClear, onEditEarned, onCancelRequired, onSelectCourse, onSelectSection,
   selectedCourseId, inputs, onApplyBundle, showFutureRequired, setShowFutureRequired,
+  moocOffset, setMoocOffset, competitionOffset, setCompetitionOffset,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("cart");
@@ -222,6 +230,43 @@ export function SimPanel({
     () => buildPlacement(view.nextSemRequired, cartCourses, formalSections, planLabel, chosen, selectedPlan),
     [view.nextSemRequired, cartCourses, formalSections, planLabel, chosen, selectedPlan],
   );
+
+  // 待选清单分类汇总（与毕业核算环图同口径 / 同色板）：
+  //   必修(深蓝) = cart 必修 + 下学期必修(view.nextSemRequired)
+  //   专业限选(紫) / 选修(绿) = cart 内对应性质（下学期必修都是 REQUIRED_NATURES，不会落到这两类）
+  // 课程性质用 courseNature 派生（含 公选课/任意选修 兜底）。
+  // 动态：随 cartCourses / nextSemRequired / selectedPlan 变化自动重算；空清单时仍显示三个 0 占位。
+  const cartSummary = useMemo(() => {
+    const buckets = {
+      required: { credits: 0, count: 0 },
+      majorElective: { credits: 0, count: 0 },
+      elective: { credits: 0, count: 0 },
+    };
+    const requiredFromCart = new Set<string>();
+    for (const c of cartCourses) {
+      const nature = courseNature(c, selectedPlan);
+      const key: keyof typeof buckets = REQUIRED_NATURES.includes(nature)
+        ? "required"
+        : nature === "专业限选"
+          ? "majorElective"
+          : "elective";
+      if (key === "required") requiredFromCart.add(c.id);
+      buckets[key].credits += c.credits;
+      buckets[key].count += 1;
+    }
+    // 下学期必修：方案派生、自动落到课表，但用户感知里也是要"选/登记"的，所以算进必修桶。
+    // 与 cart 内同 cid 去重，避免用户手动加车后被双计。
+    for (const pc of view.nextSemRequired) {
+      if (requiredFromCart.has(pc.cid)) continue;
+      buckets.required.credits += pc.credits;
+      buckets.required.count += 1;
+    }
+    return [
+      { key: "required", label: "必修", color: "#2563EB", ...buckets.required },
+      { key: "majorElective", label: "专业限选", color: "#8B5CF6", ...buckets.majorElective },
+      { key: "elective", label: "选修", color: "#10B981", ...buckets.elective },
+    ];
+  }, [cartCourses, selectedPlan, view.nextSemRequired]);
   // 待选清单展示用：每门 cart / required 课的落格班级（选班结果）。
   const sectionInfo = useMemo(() => {
     const m: Record<string, { className?: string; placed: boolean }> = {};
@@ -484,12 +529,24 @@ export function SimPanel({
 
                 {/* 待选清单 */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                      已加入 {cartCourses.length} 门
-                    </span>
+                  {/* 分类汇总：圆点 + 标签 + 学分·门数；空类灰显，保持布局稳定。 */}
+                  <div className="mb-2 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      {cartSummary.map((s) => (
+                        <span key={s.key} className="inline-flex items-center gap-1 text-[11px]">
+                          <span
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{ background: s.color, opacity: s.count > 0 ? 1 : 0.3 }}
+                          />
+                          <span className={s.count > 0 ? "text-gray-500" : "text-gray-300"}>{s.label}</span>
+                          <span className={`font-semibold tabular-nums ${s.count > 0 ? "text-gray-700" : "text-gray-300"}`}>
+                            {s.credits} 学分 · {s.count} 门
+                          </span>
+                        </span>
+                      ))}
+                    </div>
                     {cartCourses.length > 0 && (
-                      <button onClick={onClear} className="text-[11px] text-gray-400 hover:text-rose-500">清空</button>
+                      <button onClick={onClear} className="text-[11px] text-gray-400 hover:text-rose-500 shrink-0">清空</button>
                     )}
                   </div>
                   <CartList
@@ -634,6 +691,67 @@ export function SimPanel({
                       <span className="font-black text-gray-800 text-[22px] leading-none">
                         {view.totalRemaining ?? "?"}<span className="text-[12px] text-gray-400 font-medium"> 学分</span>
                       </span>
+                    </div>
+
+                    {/* 校外学分抵扣：不在课表上的学分，直接加进选修。 */}
+                    <div className="mt-3 w-full space-y-1.5">
+                      {/* 校外慕课：固定 +5 */}
+                      <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-gray-100 bg-gray-50/60">
+                        <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={moocOffset}
+                            onChange={(e) => setMoocOffset(e.target.checked)}
+                            className="w-3.5 h-3.5 accent-red-500 shrink-0"
+                          />
+                          <span className="text-[12px] text-gray-700">校外慕课</span>
+                          <a
+                            href="https://www.xiaohongshu.com/explore/69c15d24000000001b00029e?xsec_token=ABuyRB0hFKGYqcJ7vyGlTAumowQeRivI8M6p2XowkeOkE=&xsec_source=pc_user"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="这是什么？"
+                            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-300 text-gray-400 text-[9px] font-bold leading-none hover:border-red-300 hover:text-red-500 transition-colors"
+                          >
+                            ?
+                          </a>
+                        </label>
+                        <span className={`text-[11px] tabular-nums shrink-0 ${moocOffset ? "text-emerald-600 font-semibold" : "text-gray-400"}`}>
+                          {moocOffset ? "+5" : "+0"}<span className="text-gray-400 font-normal"> 学分</span>
+                        </span>
+                      </div>
+
+                      {/* 赛事学分抵扣：用户填多少加多少（浮点）。 */}
+                      <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-gray-100 bg-gray-50/60">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-[12px] text-gray-700">赛事学分抵扣</span>
+                          <a
+                            href="https://i.imgs.ovh/2026/05/28/8637eca28e42f7ee54496f40112e0add.png"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="这是什么？"
+                            className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-300 text-gray-400 text-[9px] font-bold leading-none hover:border-red-300 hover:text-red-500 transition-colors"
+                          >
+                            ?
+                          </a>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[11px] text-gray-400">+</span>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min={0}
+                            value={competitionOffset || ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              setCompetitionOffset(Number.isFinite(v) ? v : 0);
+                            }}
+                            placeholder="0"
+                            className="w-14 px-1.5 py-0.5 rounded border border-gray-200 text-[11px] text-right tabular-nums focus:outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
+                          />
+                          <span className="text-[11px] text-gray-400">学分</span>
+                        </div>
+                      </div>
                     </div>
                   </>
                 )}

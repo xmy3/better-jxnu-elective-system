@@ -92,23 +92,49 @@ export function CreditBar({ block }: { block: CreditBlock }) {
             <span className="inline-flex items-center gap-1 text-[10px] text-gray-500">
               <span className="inline-block w-1.5 h-1.5 rounded-sm" style={{ background: subTarget.color }} />
               {subTarget.label}
+              {subTarget.planned > 0 && (
+                <span
+                  className="inline-flex items-center text-[9px] font-bold px-1 rounded border ml-0.5"
+                  style={{ color: subTarget.color, background: subTarget.color + "14", borderColor: subTarget.color + "55" }}
+                >
+                  +{subTarget.planned}
+                </span>
+              )}
             </span>
             <span className="text-[10px] font-mono">
               <span className="font-bold" style={{ color: subTarget.earned >= subTarget.required ? "#059669" : subTarget.color }}>
                 {subTarget.earned}
               </span>
+              {subTarget.planned > 0 && (
+                <span style={{ color: subTarget.color }}>+{subTarget.planned}</span>
+              )}
               <span className="text-gray-400"> / {subTarget.required}</span>
             </span>
           </div>
-          <div className="relative h-1 rounded-full bg-gray-100 overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 transition-[width] duration-500 ease-out"
-              style={{
-                width: `${Math.min(100, (subTarget.earned / subTarget.required) * 100)}%`,
-                background: subTarget.color,
-              }}
-            />
-          </div>
+          {(() => {
+            const earnedPct = Math.min(100, (subTarget.earned / subTarget.required) * 100);
+            const plannedPct = Math.min(Math.max(0, 100 - earnedPct), (subTarget.planned / subTarget.required) * 100);
+            return (
+              <div className="relative h-1 rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 transition-[width] duration-500 ease-out"
+                  style={{ width: `${earnedPct}%`, background: subTarget.color }}
+                />
+                {plannedPct > 0 && (
+                  <div
+                    className="absolute inset-y-0 transition-[width,left] duration-500 ease-out"
+                    style={{
+                      left: `${earnedPct}%`,
+                      width: `${plannedPct}%`,
+                      background: subTarget.color,
+                      backgroundImage: "repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 3px, transparent 3px 6px)",
+                    }}
+                    title={`下学期理论（${subTarget.label}）+${subTarget.planned} 分`}
+                  />
+                )}
+              </div>
+            );
+          })()}
           <p className="mt-1 text-[10px] text-gray-400 leading-relaxed">
             培养方案的限选学分要求并不一定为毕业要求，详情请咨询当前学院教务处。
           </p>

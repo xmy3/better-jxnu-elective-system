@@ -27,6 +27,10 @@ export interface StoredInputs {
   visitedMajorElective: boolean;
   /** 学号导入的真实已修 cid（按 isPassed 过滤）。空数组 = 未导入 / 已清空，走启发式。 */
   importedTakenCids: string[];
+  /** 校外慕课抵扣：勾选 = +5 学分计入选修。 */
+  moocOffset: boolean;
+  /** 赛事学分抵扣：输入值（浮点）直接计入选修。 */
+  competitionOffset: number;
 }
 
 const EMPTY: StoredInputs = {
@@ -41,6 +45,8 @@ const EMPTY: StoredInputs = {
   showFutureRequired: false,
   visitedMajorElective: false,
   importedTakenCids: [],
+  moocOffset: false,
+  competitionOffset: 0,
 };
 
 function simKey(plan: string) {
@@ -136,6 +142,16 @@ export function useCreditPlan(
     (v: boolean) => mutate((p) => ({ ...p, visitedMajorElective: v })),
     [mutate],
   );
+  // 校外慕课抵扣开关：勾选 = +5 学分到选修。
+  const setMoocOffset = useCallback(
+    (v: boolean) => mutate((p) => ({ ...p, moocOffset: v })),
+    [mutate],
+  );
+  // 赛事学分抵扣（浮点）：值直接加到选修；负值钳到 0。
+  const setCompetitionOffset = useCallback(
+    (v: number) => mutate((p) => ({ ...p, competitionOffset: Number.isFinite(v) ? Math.max(0, v) : 0 })),
+    [mutate],
+  );
   // 转专业「已抵」勾选：未匹配前两学期必修中，用户确认已从其他课抵掉学分的 cid。
   const toggleTransferOffset = useCallback(
     (cid: string) =>
@@ -216,6 +232,8 @@ export function useCreditPlan(
       transferEarlyCids,
       transferOffsetCids: new Set(stored.transferOffsetCids),
       showFutureRequired: stored.showFutureRequired,
+      moocOffset: stored.moocOffset,
+      competitionOffset: stored.competitionOffset,
     }),
     [stored, term, transferActive, transferEarlyCids],
   );
@@ -293,6 +311,8 @@ export function useCreditPlan(
     transferEarlyCids: transferEarlyCidArray,
     transferActive,
     takenCids,
+    setMoocOffset,
+    setCompetitionOffset,
     loading,
   };
 }

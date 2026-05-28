@@ -299,9 +299,12 @@ def build_master(semesters: dict, training_plan: list) -> dict:
             for s in rows:
                 cid = (s.get("课程号") or "").strip()
                 if cid and cid not in sch_map:
+                    # 课程信息（新格式自带学分）—— 兜底给 catalog/training_plan 都没收录的 cid（如纯慕课课）。
+                    ci = s.get("课程信息") or {}
                     sch_map[cid] = {
                         "name": (s.get("课程名称") or "").strip(),
                         "dept": (s.get("单位名称") or "").strip(),
+                        "credits": _parse_credits(ci.get("学分")),
                     }
         sch_meta_per_sem[sem] = sch_map
 
@@ -327,13 +330,15 @@ def build_master(semesters: dict, training_plan: list) -> dict:
             or (sch_row.get("name", "") if sch_row else "")
         )
 
-        # 学分：training_plan > catalog
+        # 学分：training_plan > catalog > schedule（schedule 兜底覆盖只在课表出现的纯慕课课等）
         credits = credits_by_id.get(cid, 0)
         if credits == 0 and cat_row:
             try:
                 credits = int(cat_row.get("学分", "0") or 0)
             except ValueError:
                 credits = 0
+        if credits == 0 and sch_row:
+            credits = sch_row.get("credits", 0) or 0
 
         # 学院：catalog > schedule（training_plan 无此字段）
         dept = ""

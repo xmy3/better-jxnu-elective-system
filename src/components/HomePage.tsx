@@ -22,6 +22,7 @@ import { Pagination } from "./Pagination";
 import { SimToggle } from "./sim/SimToggle";
 import { SimPanel } from "./sim/SimPanel";
 import { OnboardingModal } from "./sim/OnboardingModal";
+import { ConfirmDialog } from "./sim/ConfirmDialog";
 import type { Course, DataSource, FormalSection } from "../types";
 
 const DATA_SOURCE_KEY = "jxnu_data_source";
@@ -153,12 +154,23 @@ export function HomePage() {
   }, [handleApplyBundle]);
 
   // 加/移待选清单 + 顶部 toast。
-  // 模拟选课模式下，新增公选课 / 任意选修若超出每学期 2 门软上限，弹 confirm 提醒。
+  // 模拟选课模式下，新增公选课 / 任意选修若超出每学期 2 门软上限、或加入后总学分超过毕业要求，弹自定义确认框（异步）。
   const [cartToast, setCartToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // 上限提示核心：返回 false = 用户拒绝继续，true = 放行。仅对"加车"动作生效。
+  // 软上限确认框的待结算状态：title/message + 用户决策回写的 Promise resolver。
+  const [cartConfirm, setCartConfirm] = useState<{
+    title: string;
+    message: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  // 通用「问一次」助手：把弹窗状态串成 Promise，便于上限检查链式 await。
+  const askCartConfirm = useCallback((title: string, message: string): Promise<boolean> => {
+    return new Promise<boolean>((resolve) => setCartConfirm({ title, message, resolve }));
+  }, []);
+  // 上限提示核心：返回 Promise<false> = 用户拒绝继续，Promise<true> = 放行。仅对"加车"动作生效。
+  // 三道软上限按顺序问：公选课 2 / 任意选修 2 / 加入后总学分 > 毕业要求。任一拒绝即终止。
   const confirmCartLimit = useCallback(
-    (id: string): boolean => {
+    async (id: string): Promise<boolean> => {
       if (sim.mode !== "sim") return true;
       const c = courses.find((cc) => cc.id === id);
       if (!c) return true;
@@ -167,18 +179,40 @@ export function HomePage() {
         const count = cartCourses.filter((x) =>
           x.tags.some((t) => t === "公选课" || t.startsWith("公选课-")),
         ).length;
-        if (count >= 2 && !window.confirm(
-          `下学期待选清单已有 ${count} 门公选课（建议每学期不超过 2 门）。仍要加入《${c.name}》吗？`,
-        )) return false;
+        if (count >= 2) {
+          const ok = await askCartConfirm(
+            "超出公选课建议上限",
+            `下学期待选清单已有 ${count} 门公选课（学校要求每学期不超过 2 门）。仍要加入《${c.name}》吗？`,
+          );
+          if (!ok) return false;
+        }
       } else if (isAnyElective(c, filter.filters.plan)) {
         const count = cartCourses.filter((x) => isAnyElective(x, filter.filters.plan)).length;
-        if (count >= 2 && !window.confirm(
-          `下学期待选清单已有 ${count} 门任意选修课（建议每学期不超过 2 门）。仍要加入《${c.name}》吗？`,
-        )) return false;
+        if (count >= 2) {
+          const ok = await askCartConfirm(
+            "超出任意选修建议上限",
+            `下学期待选清单已有 ${count} 门任意选修课（学校要求每学期不超过 2 门）。仍要加入《${c.name}》吗？`,
+          );
+          if (!ok) return false;
+        }
+      }
+      // 毕业总学分超额：已修 + 下学期投影（含当前 cart） + 新课 > minTotal 才弹。
+      // earned 已含 mooc/赛事 校外抵扣（buildCreditPlan 里加进 electiveEarnedTotal）。
+      const minTotal = credit.view.minTotal;
+      if (minTotal != null) {
+        const totalAfter = credit.view.earned + credit.view.projection.value + c.credits;
+        if (totalAfter > minTotal) {
+          const over = totalAfter - minTotal;
+          const ok = await askCartConfirm(
+            "已超出毕业总学分要求",
+            `加入《${c.name}》(${c.credits} 学分) 后，已修 + 下学期理论学分共 ${totalAfter.toFixed(1)} 分，超毕业要求 ${minTotal} 分 ${over.toFixed(1)} 分。仍要加入吗？`,
+          );
+          if (!ok) return false;
+        }
       }
       return true;
     },
-    [courses, cartCourses, sim.mode, filter.filters.plan],
+    [courses, cartCourses, sim.mode, filter.filters.plan, credit.view, askCartConfirm],
   );
   const showCartToast = useCallback((msg: string) => {
     setCartToast(msg);
@@ -186,9 +220,9 @@ export function HomePage() {
     toastTimer.current = setTimeout(() => setCartToast(null), 1400);
   }, []);
   const handleToggleCart = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const had = cart.has(id);
-      if (!had && !confirmCartLimit(id)) return;
+      if (!had && !(await confirmCartLimit(id))) return;
       cart.toggle(id);
       showCartToast(had ? "已移出待选清单" : "已加入待选清单");
     },
@@ -200,9 +234,9 @@ export function HomePage() {
   // 同课 section key 形如 "班级名|教号"，与 useChosenSections / schedulePlacement 同口径。
   const sectionKeyOf = (s: FormalSection) => `${s.className}|${s.teacherId}`;
   const handleToggleCartSection = useCallback(
-    (s: FormalSection) => {
+    async (s: FormalSection) => {
       const had = cart.has(s.id);
-      if (!had && !confirmCartLimit(s.id)) return;
+      if (!had && !(await confirmCartLimit(s.id))) return;
       cart.toggle(s.id);
       if (!had) chosenSections.choose(s.id, sectionKeyOf(s));
       // 移车不动 chosen，保留用户的班级偏好（下次再加自动覆盖）。
@@ -949,6 +983,10 @@ export function HomePage() {
           onApplyBundle={handleApplyBundle}
           showFutureRequired={credit.stored.showFutureRequired}
           setShowFutureRequired={credit.setShowFutureRequired}
+          moocOffset={credit.stored.moocOffset}
+          setMoocOffset={credit.setMoocOffset}
+          competitionOffset={credit.stored.competitionOffset}
+          setCompetitionOffset={credit.setCompetitionOffset}
         />
       )}
 
@@ -1003,6 +1041,24 @@ export function HomePage() {
           {cartToast}
         </div>
       )}
+
+      {/* 加车软上限确认（公选课 / 任意选修 ≥ 2 门时弹出，替代 window.confirm）。
+          ConfirmDialog 内部已含遮罩点击 + ESC 取消逻辑，关闭即视为「拒绝继续」。 */}
+      <ConfirmDialog
+        open={!!cartConfirm}
+        title={cartConfirm?.title ?? ""}
+        message={cartConfirm?.message}
+        confirmText="仍要加入"
+        cancelText="取消"
+        onConfirm={() => {
+          cartConfirm?.resolve(true);
+          setCartConfirm(null);
+        }}
+        onCancel={() => {
+          cartConfirm?.resolve(false);
+          setCartConfirm(null);
+        }}
+      />
     </div>
   );
 }

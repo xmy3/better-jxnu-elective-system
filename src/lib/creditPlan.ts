@@ -56,6 +56,8 @@ export interface SubTarget {
   label: string;
   required: number;
   earned: number;
+  /** 下学期理论：cart 内同性质课程学分（用于环图斜纹紫 + 子条斜纹段，动态随 cart 变化）。 */
+  planned: number;
   color: string;
 }
 
@@ -79,6 +81,10 @@ export interface CreditInputs {
   transferOffsetCids: Set<string>;
   /** 显示未来学期（ti > planTerm）必修课：核对列表追加这批 + 环图浅蓝规划进度（仅展示，不进待选清单）。 */
   showFutureRequired: boolean;
+  /** 校外慕课抵扣：勾选 = +5 学分直接计入选修。 */
+  moocOffset: boolean;
+  /** 赛事学分抵扣：输入值（浮点）直接计入选修。 */
+  competitionOffset: number;
 }
 
 /** 红色「下学期理论投影」：下学期自动必修 + 待选清单。 */
@@ -206,7 +212,7 @@ export function buildCreditPlan(
   selectedPlan: string,
   inputs: CreditInputs,
 ): CreditPlanView {
-  const { totalEarned, electiveThisSem, term, takenMajorElectives, excludedRequired, transferMode, transferEarlyCids, transferOffsetCids, showFutureRequired } = inputs;
+  const { totalEarned, electiveThisSem, term, takenMajorElectives, excludedRequired, transferMode, transferEarlyCids, transferOffsetCids, showFutureRequired, moocOffset, competitionOffset } = inputs;
   const planTerm = term + 1;
 
   // 必修 / 限选 应修（byNature.sumXf + minMajorElective 权威）。
@@ -290,8 +296,9 @@ export function buildCreditPlan(
   const reqEarned = effectivePrevReq + readReqCredits;
   const requiredPlanned = nextReqCredits + cartRequired;
 
-  // 选修块：已修(绿) = (教务总分 − 非本学期必修) + 本学期选修；专业限选(紫)为其子段。
-  const electiveEarnedTotal = Math.max(0, totalEarned - effectivePrevReq + electiveThisSem);
+  // 选修块：已修(绿) = (教务总分 − 非本学期必修) + 本学期选修 + 校外抵扣（慕课 +5 / 赛事自定义）；专业限选(紫)为其子段。
+  const externalOffset = (moocOffset ? 5 : 0) + Math.max(0, competitionOffset);
+  const electiveEarnedTotal = Math.max(0, totalEarned - effectivePrevReq + electiveThisSem + externalOffset);
   const purpleEarned = Math.min(majorElectiveEarned, electiveEarnedTotal);
   const greenOther = Math.max(0, electiveEarnedTotal - purpleEarned);
   const electivePlanned = cartElective + cartMajorElective;
@@ -359,7 +366,7 @@ export function buildCreditPlan(
     ],
     electivePlanned,
     requirement
-      ? { label: "专业限选", required: minMajorElective, earned: majorElectiveEarned, color: SEG_COLOR.majorElective }
+      ? { label: "专业限选", required: minMajorElective, earned: majorElectiveEarned, planned: cartMajorElective, color: SEG_COLOR.majorElective }
       : null,
   );
 

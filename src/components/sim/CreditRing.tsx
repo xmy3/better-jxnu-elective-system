@@ -44,6 +44,15 @@ export function CreditRing({ view, size = 120, stroke = 12 }: Props) {
     // 「未来必修」(极浅蓝)现在已是必修块 segments 的一部分（buildCreditPlan 注入），
     // 会跟着第一段 flatMap 渲染，不能再单独 push 一次，否则双倍。
     // decal 由 CanvasRenderer 直接绘制（无需 aria 组件）；万一 decal 不渲染，底色仍是块色，语义不丢。
+    // 专业限选子目标若有 cart 项（subTarget.planned > 0），从选修块 planned 里"挑出"对应学分单独用紫色斜纹片，
+    // 让加车 → 紫色弧随之增长（之前全归绿色斜纹，紫弧静止）。
+    const stripeDecal = {
+      symbol: "rect",
+      color: "rgba(255,255,255,0.55)",
+      dashArrayX: [1, 0],
+      dashArrayY: [2, 5],
+      rotation: Math.PI / 4,
+    } as const;
     const data = [
       ...view.blocks.flatMap((b) =>
         b.segments.map((seg) => ({
@@ -52,24 +61,26 @@ export function CreditRing({ view, size = 120, stroke = 12 }: Props) {
           itemStyle: { color: seg.color },
         })),
       ),
-      ...view.blocks.flatMap((b) =>
-        b.planned > 0
-          ? [{
-              name: `${b.label}·下学期理论`,
-              value: b.planned,
-              itemStyle: {
-                color: b.color,
-                decal: {
-                  symbol: "rect",
-                  color: "rgba(255,255,255,0.55)",
-                  dashArrayX: [1, 0],
-                  dashArrayY: [2, 5],
-                  rotation: Math.PI / 4,
-                },
-              },
-            }]
-          : [],
-      ),
+      ...view.blocks.flatMap((b) => {
+        const subPlanned = b.subTarget?.planned ?? 0;
+        const ownPlanned = Math.max(0, b.planned - subPlanned);
+        const slices: { name: string; value: number; itemStyle: object }[] = [];
+        if (ownPlanned > 0) {
+          slices.push({
+            name: `${b.label}·下学期理论`,
+            value: ownPlanned,
+            itemStyle: { color: b.color, decal: stripeDecal },
+          });
+        }
+        if (subPlanned > 0 && b.subTarget) {
+          slices.push({
+            name: `${b.subTarget.label}·下学期理论`,
+            value: subPlanned,
+            itemStyle: { color: b.subTarget.color, decal: stripeDecal },
+          });
+        }
+        return slices;
+      }),
       {
         name: "剩余",
         value: Math.max(0, denom - view.earned - proj),
