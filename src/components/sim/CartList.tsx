@@ -24,11 +24,11 @@ interface Props {
 }
 
 function getCreditColor(credits: number): string {
-  if (credits <= 1) return "bg-red-50 text-red-400";
-  if (credits <= 2) return "bg-red-100 text-red-500";
-  if (credits <= 3) return "bg-red-100 text-red-600";
-  if (credits <= 4) return "bg-red-200 text-red-700";
-  return "bg-red-300 text-red-800";
+  if (credits <= 1) return "bg-red-50 text-red-400 dark:bg-[#7F1D1D]/40 dark:text-[#FCA5A5]";
+  if (credits <= 2) return "bg-red-100 text-red-600 dark:bg-[#7F1D1D]/55 dark:text-[#FECACA]";
+  if (credits <= 3) return "bg-red-100 text-red-600 dark:bg-[#7F1D1D]/70 dark:text-[#FECACA]";
+  if (credits <= 4) return "bg-red-200 text-red-700 dark:bg-[#991B1B]/85 dark:text-[#FEE2E2]";
+  return "bg-red-300 text-red-800 dark:bg-[#B91C1C]/90 dark:text-white";
 }
 
 // 公选课无固定班级（统一开课）。
