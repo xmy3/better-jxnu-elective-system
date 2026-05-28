@@ -62,7 +62,7 @@ export function CartList({ courses, selectedPlan, onRemove, sectionInfo, onNotif
       <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center">
         <div className="text-[12px] text-gray-400">待选清单空空如也</div>
         <div className="text-[11px] text-gray-300 mt-0.5">
-          在课程列表点 <span className="font-mono bg-gray-100 px-1 rounded">+</span> 加课开始
+          在课程详情页“加入待选清单”开始
         </div>
       </div>
     );

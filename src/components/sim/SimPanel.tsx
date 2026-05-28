@@ -401,7 +401,7 @@ export function SimPanel({
                     {reqOpen && (
                       <div className="px-2 pb-2 space-y-1.5">
                         <div className="px-1 pt-1 text-[10px] text-gray-400 leading-relaxed">
-                          必修按培养方案自动排入下学期。复学 / 转专业等情况可取消某门；取消后仍可恢复。
+                          必修按培养方案自动排入下学期。取消后仍可恢复。
                         </div>
                         {view.nextSemRequired.map((c) => {
                           const info = sectionInfo[c.cid];

@@ -5,6 +5,7 @@ import { CopyIdButton } from "./CopyIdButton";
 import { displayTags, isInPlan, compactTags } from "../lib/planMatch";
 import { DataSourceSwitcher } from "./DataSourceSwitcher";
 import { SemesterSelector } from "./SemesterSelector";
+import { isTestSemester } from "../lib/term";
 import { normalizePeriods, unselectedIncludeSlots, slotLabel } from "../lib/scheduleParse";
 import type { ScheduleFilterMap } from "../lib/scheduleParse";
 
@@ -225,10 +226,21 @@ export function CourseTable({
       <div className="hidden md:block bg-white rounded-b-xl border-x border-b border-gray-100 shadow-sm">
         {/* Toolbar —— 左：数据源切换；右：学期下拉。 */}
         <div
-          className="sticky z-30 flex h-[50px] items-center justify-between bg-white px-5 border-b border-gray-100"
+          className="sticky z-30 flex h-[50px] items-center justify-between bg-white px-5 border-b border-gray-100 relative"
           style={{ top: stickyTop }}
         >
           <DataSourceSwitcher value={dataSource} onChange={onChangeDataSource} />
+          {isFormal && selectedSemester && isTestSemester(selectedSemester) && (
+            <div
+              className="pointer-events-none absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200 max-w-[60%]"
+              role="status"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" clipRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5z" />
+              </svg>
+              <span className="truncate">此表数据仅供功能测试，本学期开课安排暂未发布，请注意</span>
+            </div>
+          )}
           {onChangeSemester && (
             <SemesterSelector
               value={selectedSemester}
