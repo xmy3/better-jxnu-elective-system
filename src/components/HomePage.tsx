@@ -553,8 +553,8 @@ export function HomePage() {
     <div className="min-h-screen bg-page">
       {/* Header - two layers */}
       <header ref={headerRef} className="sticky top-0 z-40">
-        {/* Layer 1: Red status bar */}
-        <div className="bg-header">
+        {/* Layer 1: Red status bar —— relative z-10 让其底部投影盖在下方搜索行之上（见 index.css .bg-header） */}
+        <div className="bg-header relative z-10">
           <div className="max-w-[2000px] mx-auto px-6 flex items-center justify-between py-2.5">
             <div className="flex items-center gap-2.5">
               <img src="/img/JXNUlogo.png" alt="JXNU" className="w-7 h-7 rounded-lg object-contain" />
@@ -596,7 +596,7 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Layer 2: White search bar */}
+        {/* Layer 2: search bar */}
         <div className="bg-page md:bg-card">
           <div className="max-w-[2000px] mx-auto px-4 md:px-6 py-2 md:py-3 flex items-center gap-4">
             {/* Desktop search - centered */}
