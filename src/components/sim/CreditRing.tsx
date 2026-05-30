@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
 import { PieChart } from "echarts/charts";
 import { TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { CreditPlanView } from "../../lib/creditPlan";
+import { useTheme } from "../../hooks/useTheme";
 
 echarts.use([PieChart, TooltipComponent, CanvasRenderer]);
 
@@ -13,27 +14,14 @@ interface Props {
   stroke?: number;
 }
 
-/** 监听 <html> 上的 .dark 类切换，让 echarts 重渲染时拿到当前主题 */
-function useIsDark(): boolean {
-  const [dark, setDark] = useState<boolean>(() =>
-    typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
-  useEffect(() => {
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => setDark(root.classList.contains("dark")));
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-  return dark;
-}
-
 // 毕业核算环（ECharts doughnut）。两大块按子类着色 + 各块「下学期理论」投影(块色斜纹) + 剩余(灰)：
 //   非本学期必修(深蓝) / 本学期必修·在读(浅蓝) / 其他选修(绿) / 专业限选(紫) / 各块理论(块色 decal 斜纹) / 剩余(灰)。
 // 数据项 name 稳定 → setOption 合并时角度平滑过渡。悬停显示子类名+学分。中心写已修 / 毕业最低。
 export function CreditRing({ view, size = 120, stroke = 12 }: Props) {
   const elRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const isDark = useIsDark();
+  const { resolved } = useTheme();
+  const isDark = resolved === "dark";
 
   useEffect(() => {
     if (!elRef.current) return;

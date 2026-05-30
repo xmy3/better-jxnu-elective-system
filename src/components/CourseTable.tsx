@@ -174,17 +174,18 @@ function compressClassName(raw: string, maxLen = 11): string {
 
 function getCreditColor(credits: number): string {
   // 亮色：浅红底 + 深红字，色阶随学分递增饱和度。
-  // 暗色：用 arbitrary value 走深红 brick(#7F1D1D)/暗砖(#991B1B)/red-700(#B91C1C)/brand(#A33) 半透明，
-  //       配近白色文字。
-  if (credits <= 1) return "bg-red-50 text-red-300 dark:bg-[#7F1D1D]/30 dark:text-[#FCA5A5]";
-  if (credits <= 2) return "bg-red-50 text-red-400 dark:bg-[#7F1D1D]/40 dark:text-[#FCA5A5]";
-  if (credits <= 3) return "bg-red-100 text-red-500 dark:bg-[#7F1D1D]/55 dark:text-[#FECACA]";
-  if (credits <= 4) return "bg-red-100 text-red-600 dark:bg-[#7F1D1D]/70 dark:text-[#FECACA]";
-  if (credits <= 5) return "bg-red-200 text-red-600 dark:bg-[#991B1B]/70 dark:text-[#FEE2E2]";
-  if (credits <= 6) return "bg-red-200 text-red-700 dark:bg-[#991B1B]/85 dark:text-[#FEE2E2]";
-  if (credits <= 8) return "bg-red-300 text-red-700 dark:bg-[#B91C1C]/90 dark:text-white";
-  if (credits <= 10) return "bg-red-400 text-red-800 dark:bg-[#B91C1C] dark:text-white";
-  return "bg-red-500 text-white dark:bg-[#A33] dark:text-white";
+  // 暗色：用 arbitrary value 走深红 brick(#7F1D1D)/暗砖(#991B1B)/red-700(#B91C1C)/brand(#A33) 半透明，配近白色文字。
+  // 注意：亮色的 bg-red-*/text-red-* 被 index.css 全局 .dark 补丁映射覆盖，会压过 dark: 变体 ——
+  //       故凡被映射的档位都改用 arbitrary hex 绕过，dark: 才能干净生效（未被映射的 text-red-300/400 保留类名）。
+  if (credits <= 1) return "bg-[#FEF2F2] text-red-300 dark:bg-[#7F1D1D]/30 dark:text-[#FCA5A5]";
+  if (credits <= 2) return "bg-[#FEF2F2] text-red-400 dark:bg-[#7F1D1D]/40 dark:text-[#FCA5A5]";
+  if (credits <= 3) return "bg-[#FEE2E2] text-[#EF4444] dark:bg-[#7F1D1D]/55 dark:text-[#FECACA]";
+  if (credits <= 4) return "bg-[#FEE2E2] text-[#DC2626] dark:bg-[#7F1D1D]/70 dark:text-[#FECACA]";
+  if (credits <= 5) return "bg-[#FECACA] text-[#DC2626] dark:bg-[#991B1B]/70 dark:text-[#FEE2E2]";
+  if (credits <= 6) return "bg-[#FECACA] text-[#B91C1C] dark:bg-[#991B1B]/85 dark:text-[#FEE2E2]";
+  if (credits <= 8) return "bg-[#FCA5A5] text-[#B91C1C] dark:bg-[#B91C1C]/90 dark:text-white";
+  if (credits <= 10) return "bg-[#F87171] text-[#991B1B] dark:bg-[#B91C1C] dark:text-white";
+  return "bg-[#EF4444] text-white dark:bg-[#A33] dark:text-white";
 }
 
 const FORMAL_HEADERS = [

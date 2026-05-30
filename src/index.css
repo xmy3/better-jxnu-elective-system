@@ -12,7 +12,6 @@
   --color-brand: #CC3C3C;
   --color-brand-hover: #B83333;
   --color-brand-fg: #FFFFFF;
-  --color-header-bg: #CC3C3C;
   --color-header: #CC3C3C;
 }
 
@@ -26,7 +25,6 @@
   --color-brand-hover: #E55B5B;
   --color-brand-fg: #FFFFFF;
   /* 顶部 banner：暗红，与下方搜索行(card #161B22)及搜索框拉开区分，并保留品牌红身份（亮色为 #CC3C3C）。 */
-  --color-header-bg: #4A1C20;
   --color-header: #4A1C20;
 }
 
